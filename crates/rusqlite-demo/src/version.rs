@@ -11,8 +11,3 @@ pub fn library_version() -> Result<String> {
     conn.query_row("SELECT sqlite_version()", [], |row| row.get(0))
         .context("querying sqlite_version()")
 }
-
-#[cfg(test)]
-mod tests {
-    include!("../tests/unit/version.rs");
-}

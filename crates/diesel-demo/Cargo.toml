@@ -1,6 +1,6 @@
 [package]
 name = "diesel-demo"
-description = "Diesel: a compile-time checked query builder and ORM, on SQLite."
+description = "Diesel: a compile-time checked query builder and ORM, on SQLite or Postgres."
 version.workspace = true
 edition.workspace = true
 license.workspace = true

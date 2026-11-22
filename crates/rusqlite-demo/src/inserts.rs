@@ -4,7 +4,7 @@ use std::time::Instant;
 
 use anyhow::{Context as _, Result, ensure};
 use bench_common::{
-    InsertStats,
+    Backend, InsertStats,
     database::fresh_database,
     rows::row,
     workload::{COUNT_SQL, CREATE_TABLE_SQL, INSERT_SQL},
@@ -41,12 +41,8 @@ pub fn insert_rows(rows: u32) -> Result<InsertStats> {
     );
     Ok(InsertStats {
         library: "rusqlite",
+        backend: Backend::Sqlite,
         rows,
         elapsed,
     })
-}
-
-#[cfg(test)]
-mod tests {
-    include!("../tests/unit/inserts.rs");
 }

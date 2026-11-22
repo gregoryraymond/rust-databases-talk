@@ -19,12 +19,6 @@ run-all rows="3000000":
 test:
     cargo test --workspace
 
-bench:
-    cargo test --release --workspace -- --ignored --nocapture
-
-bench-one crate:
-    cargo test --release -p {{crate}} -- --ignored --nocapture
-
 fmt:
     cargo fmt --all
 

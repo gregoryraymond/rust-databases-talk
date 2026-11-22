@@ -1,6 +1,6 @@
 [package]
 name = "sqlx-demo"
-description = "sqlx: async SQL with compile-time checked queries and no DSL, on SQLite."
+description = "sqlx: async SQL with compile-time checked queries and no DSL, on SQLite or Postgres."
 version.workspace = true
 edition.workspace = true
 license.workspace = true

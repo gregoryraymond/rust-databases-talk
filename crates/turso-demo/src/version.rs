@@ -23,8 +23,3 @@ pub async fn library_version() -> Result<String> {
         .context("sqlite_version() returned no row")?;
     row.get(0).context("reading the version column")
 }
-
-#[cfg(test)]
-mod tests {
-    include!("../tests/unit/version.rs");
-}

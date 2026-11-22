@@ -2,11 +2,15 @@
 
 use std::{fmt, time::Duration};
 
+use crate::Backend;
+
 /// The result of inserting `rows` rows with one library.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InsertStats {
     /// The library that did the inserts.
     pub library: &'static str,
+    /// The database the rows went into.
+    pub backend: Backend,
     /// How many rows were inserted.
     pub rows: u32,
     /// Wall-clock time from the first insert to the commit.
@@ -31,8 +35,9 @@ impl fmt::Display for InsertStats {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "{}: {} inserts in {:.2?} ({:.0} rows/s, {:.2} us/row)",
+            "{}/{}: {} inserts in {:.2?} ({:.0} rows/s, {:.2} us/row)",
             self.library,
+            self.backend,
             self.rows,
             self.elapsed,
             self.rows_per_second(),

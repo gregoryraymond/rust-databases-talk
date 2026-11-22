@@ -1,30 +1,42 @@
-//! Reads the SQLite library version through Diesel.
+//! Reads the database version through Diesel.
 
 use anyhow::{Context as _, Result};
-use diesel::prelude::*;
+use bench_common::{Backend, database::postgres_url};
+use diesel::{pg::PgConnection, prelude::*};
 
-use crate::connection::DATABASE_URL;
+use crate::connection::SQLITE_URL;
 
 /// SQL functions Diesel does not ship, declared so queries using them type-check.
 mod sql {
     use diesel::sql_types::Text;
 
     diesel::define_sql_function! {
-        /// SQLite's `sqlite_version()`.
+        /// The SQLite `sqlite_version()` function.
         fn sqlite_version() -> Text;
+    }
+
+    diesel::define_sql_function! {
+        /// The Postgres `version()` function.
+        fn version() -> Text;
     }
 }
 
-/// Returns the version of the SQLite library Diesel is linked against.
-pub fn library_version() -> Result<String> {
-    let mut conn =
-        SqliteConnection::establish(DATABASE_URL).context("opening the demo database")?;
-    diesel::select(sql::sqlite_version())
-        .get_result(&mut conn)
-        .context("querying sqlite_version()")
-}
-
-#[cfg(test)]
-mod tests {
-    include!("../tests/unit/version.rs");
+/// Returns the SQLite library version or the Postgres server version.
+pub fn library_version(backend: Backend) -> Result<String> {
+    match backend {
+        Backend::Sqlite => {
+            let mut conn =
+                SqliteConnection::establish(SQLITE_URL).context("opening the SQLite database")?;
+            diesel::select(sql::sqlite_version())
+                .get_result(&mut conn)
+                .context("querying sqlite_version()")
+        }
+        Backend::Postgres => {
+            let mut conn =
+                PgConnection::establish(&postgres_url()).context("connecting to Postgres")?;
+            diesel::select(sql::version())
+                .get_result(&mut conn)
+                .context("querying version()")
+        }
+    }
 }

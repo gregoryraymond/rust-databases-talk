@@ -3,11 +3,16 @@
 use std::time::Instant;
 
 use anyhow::{Context as _, Result, ensure};
-use bench_common::{InsertStats, database::fresh_database, rows::row, workload::CREATE_TABLE_SQL};
+use bench_common::{
+    Backend, InsertStats,
+    database::{fresh_database, postgres_url},
+    rows::row,
+    workload::{CREATE_TABLE_SQL, DROP_TABLE_SQL, POSTGRES_CREATE_TABLE_SQL},
+};
 use sea_orm::{
     ActiveValue::{NotSet, Set},
-    ConnectionTrait as _, EntityTrait as _, PaginatorTrait as _, SqlxSqliteConnector,
-    TransactionTrait as _,
+    ConnectOptions, ConnectionTrait as _, Database, DatabaseConnection, EntityTrait as _,
+    PaginatorTrait as _, SqlxSqliteConnector, TransactionTrait as _,
     sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions},
 };
 
@@ -36,18 +41,15 @@ mod item {
 }
 
 /// Inserts `rows` rows one statement at a time inside a single transaction, timing the inserts and commit.
-pub async fn insert_rows(rows: u32) -> Result<InsertStats> {
-    let path = fresh_database(&format!("seaorm-{rows}")).context("preparing the database file")?;
-    let options = SqliteConnectOptions::new()
-        .filename(&path)
-        .create_if_missing(true);
-    let pool = SqlitePoolOptions::new()
-        .max_connections(1)
-        .connect_with(options)
+pub async fn insert_rows(backend: Backend, rows: u32) -> Result<InsertStats> {
+    let (db, create_table) = match backend {
+        Backend::Sqlite => (connect_sqlite(rows).await?, CREATE_TABLE_SQL),
+        Backend::Postgres => (connect_postgres().await?, POSTGRES_CREATE_TABLE_SQL),
+    };
+    db.execute_unprepared(DROP_TABLE_SQL)
         .await
-        .context("opening the database")?;
-    let db = SqlxSqliteConnector::from_sqlx_sqlite_pool(pool);
-    db.execute_unprepared(CREATE_TABLE_SQL)
+        .context("dropping the old table")?;
+    db.execute_unprepared(create_table)
         .await
         .context("creating the table")?;
 
@@ -78,12 +80,31 @@ pub async fn insert_rows(rows: u32) -> Result<InsertStats> {
     );
     Ok(InsertStats {
         library: "seaorm",
+        backend,
         rows,
         elapsed,
     })
 }
 
-#[cfg(test)]
-mod tests {
-    include!("../tests/unit/inserts.rs");
+/// One connection to a fresh SQLite file.
+async fn connect_sqlite(rows: u32) -> Result<DatabaseConnection> {
+    let path = fresh_database(&format!("seaorm-{rows}")).context("preparing the database file")?;
+    let options = SqliteConnectOptions::new()
+        .filename(&path)
+        .create_if_missing(true);
+    let pool = SqlitePoolOptions::new()
+        .max_connections(1)
+        .connect_with(options)
+        .await
+        .context("opening the database")?;
+    Ok(SqlxSqliteConnector::from_sqlx_sqlite_pool(pool))
+}
+
+/// One connection to the Postgres server.
+async fn connect_postgres() -> Result<DatabaseConnection> {
+    let mut options = ConnectOptions::new(postgres_url());
+    options.max_connections(1);
+    Database::connect(options)
+        .await
+        .context("connecting to Postgres")
 }

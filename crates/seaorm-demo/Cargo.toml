@@ -1,6 +1,6 @@
 [package]
 name = "seaorm-demo"
-description = "SeaORM: an async, dynamic ORM built on sqlx, on SQLite."
+description = "SeaORM: an async, dynamic ORM built on sqlx, on SQLite or Postgres."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
