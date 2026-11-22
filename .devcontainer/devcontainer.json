@@ -17,6 +17,6 @@
       ]
     }
   },
-  "forwardPorts": [1948, "postgres:5432"],
+  "forwardPorts": [1948, 8080, "postgres:5432"],
   "postCreateCommand": "sudo chown -R vscode /workspaces/rust-databases-talk/target /usr/local/cargo/registry"
 }

@@ -9,8 +9,11 @@ publish.workspace = true
 [dependencies]
 anyhow.workspace = true
 bench-common.workspace = true
+chrono.workspace = true
 tokio.workspace = true
 turso.workspace = true
+
+uuid.workspace = true
 
 [lints]
 workspace = true

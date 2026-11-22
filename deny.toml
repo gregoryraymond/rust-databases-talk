@@ -4,6 +4,7 @@ all-features = false
 [advisories]
 ignore = [
     { id = "RUSTSEC-2026-0543", reason = "chrono unmaintained; via turso_core, no fix upstream" },
+    { id = "RUSTSEC-2024-0436", reason = "paste unmaintained; a proc-macro dependency of dropshot" },
 ]
 
 [licenses]
@@ -17,6 +18,7 @@ allow = [
     "ISC",
     "Zlib",
     "Unicode-3.0",
+    "MPL-2.0",
 ]
 
 [licenses.private]

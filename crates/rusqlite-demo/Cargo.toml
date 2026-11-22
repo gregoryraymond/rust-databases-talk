@@ -9,7 +9,10 @@ publish.workspace = true
 [dependencies]
 anyhow.workspace = true
 bench-common.workspace = true
+chrono.workspace = true
 rusqlite.workspace = true
+
+uuid.workspace = true
 
 [lints]
 workspace = true

@@ -1,0 +1,13 @@
+<svg viewBox="0 0 580 1013" xmlns="http://www.w3.org/2000/svg">
+  <polygon points="134.4,463.2 150.0,364.6 430.0,411.9 570.0,435.6 570.0,486.8 554.4,492.7 554.4,526.2 538.9,614.9 538.9,650.3 398.9,626.7 414.4,510.4 134.4,463.2" fill="#e6db74" fill-opacity="0.35" stroke="#ddd" stroke-width="2"/>
+  <polygon points="430.0,411.9 150.0,364.6 72.2,352.8 25.6,197.2 10.0,193.2 25.6,163.7 56.7,157.8 56.7,128.2 134.4,140.0 150.0,10.0 181.1,23.8 196.7,47.4 227.8,79.0 243.3,112.5 305.6,128.2 336.7,140.0 398.9,126.2 445.6,138.1 445.6,88.8 461.1,79.0 476.7,84.9 476.7,86.8 430.0,411.9" fill="#ffffff" fill-opacity="0.08" stroke="#ddd" stroke-width="2"/>
+  <polygon points="398.9,626.7 274.4,605.0 227.8,577.4 118.9,561.7 118.9,540.0 118.9,510.4 103.3,484.8 103.3,457.3 134.4,463.2 414.4,510.4 398.9,626.7" fill="#ffffff" fill-opacity="0.08" stroke="#ddd" stroke-width="2"/>
+  <polygon points="538.9,650.3 554.4,650.3 523.3,859.2 492.2,1003.0 352.2,979.4 352.2,961.6 383.3,774.5 243.3,752.8 258.9,695.7 258.9,676.0 274.4,670.0 274.4,605.0 398.9,626.7 538.9,650.3" fill="#ffffff" fill-opacity="0.08" stroke="#ddd" stroke-width="2"/>
+  <polygon points="352.2,961.6 352.2,951.8 321.1,947.8 290.0,932.1 243.3,932.1 227.8,884.8 227.8,863.1 243.3,760.7 243.3,752.8 383.3,774.5 352.2,961.6" fill="#ffffff" fill-opacity="0.08" stroke="#ddd" stroke-width="2"/>
+  <text x="441" y="508" fill="#fff" font-size="18" text-anchor="middle">Prahran</text>
+  <text x="241" y="148" fill="#fff" font-size="18" text-anchor="middle">South Yarra</text>
+  <text x="201" y="534" fill="#fff" font-size="18" text-anchor="middle">Windsor</text>
+  <text x="377" y="762" fill="#fff" font-size="18" text-anchor="middle">St Kilda East</text>
+  <text x="288" y="876" fill="#fff" font-size="18" text-anchor="middle">Balaclava</text>
+  <circle cx="274.4" cy="429.7" r="8" fill="#f92672"/>
+</svg>

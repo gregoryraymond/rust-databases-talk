@@ -12,3 +12,11 @@ rusqlite: SQLite 3.54.1
 rusqlite/sqlite: 3000000 inserts in 1.20s (2509453 rows/s, 0.40 us/row)
 turso: SQLite 3.50.4
 turso/sqlite: 3000000 inserts in 4.72s (635968 rows/s, 1.57 us/row)
+
+Geospatial example: `just geo <crate>` or `just geo-all`. Same suburbs and schools in every crate, taken from property-reporting.
+Diesel, sqlx and SeaORM use PostGIS (`POSTGRES_URL`); rusqlite and Turso use plain SQLite with a bounding-box query and `geo` for the exact tests.
+Talk script is in `docs/script.md`.
+
+CRUD API: `just api` starts a Dropshot server on :8080 with `/{library}/schools` for diesel, diesel-async, sqlx, seaorm, rusqlite and turso.
+`just crud <library>` or `just crud-all` runs create, read, update, list and delete against it. `just openapi` writes the spec from the API trait.
+The Postgres libraries share one `school` table; `just geo` recreates it.
