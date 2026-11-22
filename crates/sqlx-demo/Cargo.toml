@@ -1,0 +1,16 @@
+[package]
+name = "sqlx-demo"
+description = "sqlx: async SQL with compile-time checked queries and no DSL, on SQLite."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+bench-common.workspace = true
+sqlx.workspace = true
+tokio.workspace = true
+
+[lints]
+workspace = true

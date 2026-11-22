@@ -1,0 +1,16 @@
+[package]
+name = "diesel-demo"
+description = "Diesel: a compile-time checked query builder and ORM, on SQLite."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+bench-common.workspace = true
+diesel.workspace = true
+libsqlite3-sys.workspace = true
+
+[lints]
+workspace = true

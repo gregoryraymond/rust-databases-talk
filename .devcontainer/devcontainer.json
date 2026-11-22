@@ -1,0 +1,22 @@
+{
+  "name": "Rust Databases Talk",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "dev",
+  "runServices": ["dev", "postgres"],
+  "workspaceFolder": "/workspaces/rust-databases-talk",
+  "shutdownAction": "stopCompose",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "rust-lang.rust-analyzer",
+        "tamasfe.even-better-toml",
+        "fill-labs.dependi",
+        "vadimcn.vscode-lldb",
+        "qwtel.sqlite-viewer",
+        "ckolkman.vscode-postgres"
+      ]
+    }
+  },
+  "forwardPorts": [1948, "postgres:5432"],
+  "postCreateCommand": "sudo chown -R vscode /workspaces/rust-databases-talk/target /usr/local/cargo/registry"
+}

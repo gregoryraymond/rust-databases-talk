@@ -1,0 +1,43 @@
+name: rust-databases-talk
+
+services:
+  dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ..:/workspaces/rust-databases-talk:cached
+      - cargo-registry:/usr/local/cargo/registry
+      - target:/workspaces/rust-databases-talk/target
+    environment:
+      POSTGRES_URL: postgres://talk:talk@postgres:5432/talk
+      PGHOST: postgres
+      PGUSER: talk
+      PGPASSWORD: talk
+      PGDATABASE: talk
+    command: sleep infinity
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: talk
+      POSTGRES_PASSWORD: talk
+      POSTGRES_DB: talk
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U talk -d talk"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+volumes:
+  cargo-registry:
+  target:
+  postgres-data:

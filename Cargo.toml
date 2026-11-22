@@ -1,0 +1,52 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/bench-common",
+    "crates/diesel-demo",
+    "crates/seaorm-demo",
+    "crates/sqlx-demo",
+    "crates/rusqlite-demo",
+    "crates/turso-demo",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+publish = false
+
+[workspace.dependencies]
+anyhow = "1"
+bench-common = { path = "crates/bench-common" }
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+
+libsqlite3-sys = { version = "0.40", features = ["bundled"] }
+
+diesel = { version = "2.4", features = ["sqlite", "returning_clauses_for_sqlite_3_35"] }
+sea-orm = { version = "2.0", default-features = false, features = ["sqlx-sqlite", "runtime-tokio", "macros"] }
+sqlx = { version = "0.9", default-features = false, features = ["sqlite", "runtime-tokio", "macros", "migrate"] }
+rusqlite = { version = "0.43", features = ["bundled"] }
+turso = "0.8"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_docs = "deny"
+unused_qualifications = "deny"
+unused_import_braces = "deny"
+trivial_casts = "deny"
+trivial_numeric_casts = "deny"
+
+[workspace.lints.clippy]
+pedantic = { level = "deny", priority = -1 }
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+todo = "deny"
+unimplemented = "deny"
+dbg_macro = "deny"
+print_stdout = "deny"
+print_stderr = "deny"
+allow_attributes_without_reason = "deny"
+
+[profile.dev.package."*"]
+opt-level = 3

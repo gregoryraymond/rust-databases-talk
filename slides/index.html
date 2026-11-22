@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Databases in Rust</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/theme/black.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/monokai.css" />
+</head>
+<body>
+    <div class="reveal">
+        <div class="slides">
+            <section>
+                <h1>Databases in Rust</h1>
+                <p>Diesel, SeaORM, sqlx, rusqlite and Turso on the same SQLite table</p>
+            </section>
+
+            <section>
+                <h2>Agenda</h2>
+                <ul>
+                    <li>The landscape: bindings, query builders, ORMs</li>
+                    <li>rusqlite</li>
+                    <li>sqlx</li>
+                    <li>Diesel</li>
+                    <li>SeaORM</li>
+                    <li>Turso</li>
+                    <li>Postgres</li>
+                    <li>Side by side + benchmark</li>
+                </ul>
+            </section>
+
+            <section>
+                <section>
+                    <h2>The Landscape</h2>
+                    <p><em>To be filled...</em></p>
+                </section>
+                <section>
+                    <h3>Why SQLite for the comparison</h3>
+                    <p><em>To be filled...</em></p>
+                </section>
+                <section>
+                    <h3>Sync vs async</h3>
+                    <p><em>To be filled...</em></p>
+                </section>
+                <section>
+                    <h3>One libsqlite3-sys per workspace</h3>
+                    <p><em>To be filled...</em></p>
+                </section>
+            </section>
+
+            <section>
+                <section>
+                    <h2>rusqlite</h2>
+                    <p>An ergonomic synchronous wrapper over the SQLite C library</p>
+                </section>
+                <section>
+                    <h3>Connecting</h3>
+                    <p><em>To be filled...</em></p>
+                </section>
+                <section>
+                    <h3>Inserting & querying</h3>
+                    <p><em>To be filled...</em></p>
+                </section>
+                <section>
+                    <h3>Takeaways</h3>
+                    <p><em>To be filled...</em></p>
+                </section>
+            </section>
+
+            <section>
+                <section>
+                    <h2>sqlx</h2>
+                    <p>Async SQL with compile-time checked queries and no DSL</p>
+                </section>
+                <section>
+                    <h3>Connecting</h3>
+                    <p><em>To be filled...</em></p>
+                </section>
+                <section>
+                    <h3>Compile-time checked queries</h3>
+                    <p><em>To be filled...</em></p>
+                </section>
+                <section>
+                    <h3>Migrations</h3>
+                    <p><em>To be filled...</em></p>
+                </section>
+                <section>
+                    <h3>Takeaways</h3>
+                    <p><em>To be filled...</em></p>
+                </section>
+            </section>
+
+            <section>
+                <section>
+                    <h2>Diesel</h2>
+                    <p>A compile-time checked query builder and ORM</p>
+                </section>
+                <section>
+                    <h3>Schema with <code>table!</code></h3>
+                    <p><em>To be filled...</em></p>
+                </section>
+                <section>
+                    <h3>The query DSL</h3>
+                    <p><em>To be filled...</em></p>
+                </section>
+                <section>
+                    <h3>Migrations & diesel_cli</h3>
+                    <p><em>To be filled...</em></p>
+                </section>
+                <section>
+                    <h3>Takeaways</h3>
+                    <p><em>To be filled...</em></p>
+                </section>
+            </section>
+
+            <section>
+                <section>
+                    <h2>SeaORM</h2>
+                    <p>An async, dynamic ORM built on sqlx</p>
+                </section>
+                <section>
+                    <h3>Entities & ActiveModels</h3>
+                    <p><em>To be filled...</em></p>
+                </section>
+                <section>
+                    <h3>Querying</h3>
+                    <p><em>To be filled...</em></p>
+                </section>
+                <section>
+                    <h3>Codegen with sea-orm-cli</h3>
+                    <p><em>To be filled...</em></p>
+                </section>
+                <section>
+                    <h3>Takeaways</h3>
+                    <p><em>To be filled...</em></p>
+                </section>
+            </section>
+
+            <section>
+                <section>
+                    <h2>Turso</h2>
+                    <p>An async, SQLite-compatible engine rewritten in Rust</p>
+                </section>
+                <section>
+                    <h3>Connecting</h3>
+                    <p><em>To be filled...</em></p>
+                </section>
+                <section>
+                    <h3>Inserting & querying</h3>
+                    <p><em>To be filled...</em></p>
+                </section>
+                <section>
+                    <h3>What's different from SQLite</h3>
+                    <p><em>To be filled...</em></p>
+                </section>
+                <section>
+                    <h3>Takeaways</h3>
+                    <p><em>To be filled...</em></p>
+                </section>
+            </section>
+
+            <section>
+                <section>
+                    <h2>Pointing at Postgres</h2>
+                    <p><em>To be filled...</em></p>
+                </section>
+                <section>
+                    <h3>What changes per library</h3>
+                    <p><em>To be filled...</em></p>
+                </section>
+            </section>
+
+            <section>
+                <section>
+                    <h2>Side by Side</h2>
+                    <p><em>To be filled...</em></p>
+                </section>
+                <section>
+                    <h3>Feature matrix</h3>
+                    <p><em>Async, compile-time checks, migrations, codegen... to be filled</em></p>
+                </section>
+                <section>
+                    <h3>Benchmark: 3 million inserts</h3>
+                    <p><em>Results to be filled...</em></p>
+                </section>
+            </section>
+
+            <section>
+                <h2>Live Demos</h2>
+                <p><em>To be filled...</em></p>
+            </section>
+
+            <section>
+                <h2>Interesting Discoveries</h2>
+                <p><em>To be filled during development...</em></p>
+            </section>
+
+            <section>
+                <h2>Thank You!</h2>
+                <p>Built with Rust, SQLite, Turso and Postgres</p>
+            </section>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/highlight.js"></script>
+    <script>
+        Reveal.initialize({
+            hash: true,
+            plugins: [RevealHighlight],
+        });
+    </script>
+</body>
+</html>
