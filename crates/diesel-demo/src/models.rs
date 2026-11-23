@@ -1,115 +1,58 @@
-//! Diesel's structs for the school table: one per shape a query reads or writes.
-
-use bench_common::{
-    geo_workload::WGS84_SRID,
-    school::{SchoolInput, SchoolRecord},
-};
-use chrono::{DateTime, Utc};
+use bench_common::school::{School, SchoolInput};
+use chrono::NaiveDateTime;
 use diesel::prelude::*;
-use postgis_diesel::types::Point;
 use uuid::Uuid;
 
 use crate::schema::school;
 
-/// A new school row.
-#[derive(Insertable)]
+#[derive(Queryable, Selectable, Insertable)]
 #[diesel(table_name = school)]
-pub struct NewSchool<'a> {
-    /// A time-ordered id.
-    pub id: Uuid,
-    /// The school's name.
-    pub name: &'a str,
-    /// Government, Catholic or Independent.
-    pub sector: &'a str,
-    /// Primary, Secondary and so on.
-    pub school_type: &'a str,
-    /// Where it is.
-    pub location: Point,
-    /// When the row was made.
-    pub created_at: DateTime<Utc>,
-    /// When the row last changed.
-    pub updated_at: DateTime<Utc>,
-}
-
-/// A school as read back.
-#[derive(Queryable, Selectable)]
-#[diesel(table_name = school, check_for_backend(diesel::pg::Pg))]
 pub struct SchoolRow {
-    /// The id.
-    pub id: Uuid,
-    /// The school's name.
+    pub id: Vec<u8>,
     pub name: String,
-    /// Government, Catholic or Independent.
-    pub sector: String,
-    /// Primary, Secondary and so on.
-    pub school_type: String,
-    /// Where it is.
-    pub location: Point,
-    /// When the row was made.
-    pub created_at: DateTime<Utc>,
-    /// When the row last changed.
-    pub updated_at: DateTime<Utc>,
+    pub lon: f64,
+    pub lat: f64,
+    pub created_at: NaiveDateTime,
 }
 
-/// The columns an update replaces: everything but the id and creation time.
 #[derive(AsChangeset)]
 #[diesel(table_name = school)]
-pub struct SchoolChanges<'a> {
-    /// The school's name.
-    pub name: &'a str,
-    /// Government, Catholic or Independent.
-    pub sector: &'a str,
-    /// Primary, Secondary and so on.
-    pub school_type: &'a str,
-    /// Where it is.
-    pub location: Point,
-    /// When it changed.
-    pub updated_at: DateTime<Utc>,
+pub struct SchoolChanges {
+    pub name: String,
+    pub lon: f64,
+    pub lat: f64,
 }
 
-/// A WGS 84 point.
-#[must_use]
-pub fn point((lon, lat): (f64, f64)) -> Point {
-    Point::new(lon, lat, Some(WGS84_SRID))
-}
-
-impl<'a> From<&'a SchoolRecord> for NewSchool<'a> {
-    fn from(r: &'a SchoolRecord) -> Self {
+impl From<&School> for SchoolRow {
+    fn from(s: &School) -> Self {
         Self {
-            id: r.id,
-            name: &r.name,
-            sector: &r.sector,
-            school_type: &r.school_type,
-            location: point((r.lon, r.lat)),
-            created_at: r.created_at,
-            updated_at: r.updated_at,
+            id: s.id.as_bytes().to_vec(),
+            name: s.name.clone(),
+            lon: s.lon,
+            lat: s.lat,
+            created_at: s.created_at.naive_utc(),
         }
     }
 }
 
-impl<'a> From<&'a SchoolInput> for SchoolChanges<'a> {
-    fn from(i: &'a SchoolInput) -> Self {
+impl From<&SchoolInput> for SchoolChanges {
+    fn from(i: &SchoolInput) -> Self {
         Self {
-            name: &i.name,
-            sector: &i.sector,
-            school_type: &i.school_type,
-            location: point((i.lon, i.lat)),
-            updated_at: Utc::now(),
+            name: i.name.clone(),
+            lon: i.lon,
+            lat: i.lat,
         }
     }
 }
 
-impl From<SchoolRow> for SchoolRecord {
+impl From<SchoolRow> for School {
     fn from(r: SchoolRow) -> Self {
         Self {
-            id: r.id,
+            id: Uuid::from_slice(&r.id).unwrap_or_default(),
             name: r.name,
-            sector: r.sector,
-            school_type: r.school_type,
-            lon: r.location.x,
-            lat: r.location.y,
-            created_at: r.created_at,
-            updated_at: r.updated_at,
+            lon: r.lon,
+            lat: r.lat,
+            created_at: r.created_at.and_utc(),
         }
     }
 }

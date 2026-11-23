@@ -22,9 +22,6 @@ bench-common = { path = "crates/bench-common" }
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 uuid = { version = "1", features = ["v7", "serde"] }
 chrono = { version = "0.4", default-features = false, features = ["clock", "std", "serde"] }
-geo = { version = "0.33", default-features = false }
-wkt = { version = "0.15", default-features = false, features = ["geo-types"] }
-thiserror = "2"
 serde = { version = "1", features = ["derive"] }
 schemars = { version = "0.8", features = ["uuid1", "chrono"] }
 semver = "1"
@@ -33,16 +30,17 @@ dropshot = "0.18"
 libsqlite3-sys = { version = "0.40", features = ["bundled"] }
 
 diesel = { version = "2.4", features = ["sqlite", "postgres", "returning_clauses_for_sqlite_3_35", "uuid", "chrono", "r2d2"] }
+diesel_migrations = { version = "2.3", features = ["postgres", "sqlite"] }
 diesel-async = { version = "0.10", features = ["postgres", "deadpool"] }
 postgis_diesel = "3.1"
 sea-orm = { version = "2.0", default-features = false, features = ["sqlx-sqlite", "sqlx-postgres", "runtime-tokio", "macros", "with-uuid", "with-chrono"] }
+sea-orm-migration = { version = "2.0", default-features = false, features = ["runtime-tokio", "sqlx-postgres", "sqlx-sqlite", "with-uuid", "with-chrono"] }
 sqlx = { version = "0.9", default-features = false, features = ["sqlite", "postgres", "runtime-tokio", "macros", "migrate", "uuid", "chrono"] }
 rusqlite = { version = "0.43", features = ["bundled", "uuid", "chrono"] }
 turso = { version = "0.8", default-features = false, features = ["mimalloc"] }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
-missing_docs = "deny"
 unused_qualifications = "deny"
 unused_import_braces = "deny"
 trivial_casts = "deny"
@@ -50,14 +48,15 @@ trivial_numeric_casts = "deny"
 
 [workspace.lints.clippy]
 pedantic = { level = "deny", priority = -1 }
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+must_use_candidate = "allow"
 unwrap_used = "deny"
 expect_used = "deny"
 panic = "deny"
 todo = "deny"
 unimplemented = "deny"
 dbg_macro = "deny"
-print_stdout = "deny"
-print_stderr = "deny"
 allow_attributes_without_reason = "deny"
 
 [profile.dev.package."*"]

@@ -1,6 +1,5 @@
 [package]
 name = "turso-demo"
-description = "Turso: an async, SQLite-compatible database engine rewritten in Rust."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -12,7 +11,6 @@ bench-common.workspace = true
 chrono.workspace = true
 tokio.workspace = true
 turso.workspace = true
-
 uuid.workspace = true
 
 [lints]

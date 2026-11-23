@@ -1,6 +1,4 @@
-//! The API trait implemented: each handler unpacks the request and hands it to [`Database`].
-
-use bench_common::school::{SchoolInput, SchoolRecord};
+use bench_common::school::{School, SchoolInput};
 use dropshot::{
     HttpError, HttpResponseCreated, HttpResponseDeleted, HttpResponseOk, Path, RequestContext,
     TypedBody,
@@ -12,19 +10,16 @@ use crate::{
     database::Database,
 };
 
-/// The implementation the server runs.
 pub enum SchoolApiImpl {}
 
-/// A library failure as a 500.
 #[expect(
     clippy::needless_pass_by_value,
-    reason = "used as a map_err function, which passes by value"
+    reason = "used with map_err, which passes by value"
 )]
 fn internal(e: anyhow::Error) -> HttpError {
     HttpError::for_internal_error(format!("{e:#}"))
 }
 
-/// A missing school as a 404.
 fn not_found(id: Uuid) -> HttpError {
     HttpError::for_not_found(None, format!("no school {id}"))
 }
@@ -32,20 +27,11 @@ fn not_found(id: Uuid) -> HttpError {
 impl SchoolApi for SchoolApiImpl {
     type Context = Database;
 
-    async fn list_schools(
-        rqctx: RequestContext<Database>,
-        path: Path<LibraryPath>,
-    ) -> Result<HttpResponseOk<Vec<SchoolRecord>>, HttpError> {
-        let library = path.into_inner().library;
-        let schools = rqctx.context().list(library).await.map_err(internal)?;
-        Ok(HttpResponseOk(schools))
-    }
-
     async fn create_school(
         rqctx: RequestContext<Database>,
         path: Path<LibraryPath>,
         body: TypedBody<SchoolInput>,
-    ) -> Result<HttpResponseCreated<SchoolRecord>, HttpError> {
+    ) -> Result<HttpResponseCreated<School>, HttpError> {
         let library = path.into_inner().library;
         let school = rqctx
             .context()
@@ -55,12 +41,16 @@ impl SchoolApi for SchoolApiImpl {
         Ok(HttpResponseCreated(school))
     }
 
-    async fn get_school(
+    async fn retrieve_school(
         rqctx: RequestContext<Database>,
         path: Path<SchoolPath>,
-    ) -> Result<HttpResponseOk<SchoolRecord>, HttpError> {
+    ) -> Result<HttpResponseOk<School>, HttpError> {
         let SchoolPath { library, id } = path.into_inner();
-        let school = rqctx.context().get(library, id).await.map_err(internal)?;
+        let school = rqctx
+            .context()
+            .retrieve(library, id)
+            .await
+            .map_err(internal)?;
         school.map(HttpResponseOk).ok_or_else(|| not_found(id))
     }
 
@@ -68,7 +58,7 @@ impl SchoolApi for SchoolApiImpl {
         rqctx: RequestContext<Database>,
         path: Path<SchoolPath>,
         body: TypedBody<SchoolInput>,
-    ) -> Result<HttpResponseOk<SchoolRecord>, HttpError> {
+    ) -> Result<HttpResponseOk<School>, HttpError> {
         let SchoolPath { library, id } = path.into_inner();
         let school = rqctx
             .context()

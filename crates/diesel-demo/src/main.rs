@@ -1,37 +1,47 @@
-//! Diesel on SQLite or Postgres: a compile-time checked query builder and ORM.
-//!
-//! Prints the database version, then times inserting `[rows]` rows
-//! (default: [`ROW_COUNT`]) into a fresh table, on the backend chosen in `main`.
-//! With `geo` as the argument, runs the geospatial example instead.
+use std::time::Instant;
 
-mod connection;
-mod geospatial;
-mod inserts;
-mod version;
-
-use std::{env, io::Write as _};
-
-use anyhow::{Context as _, Result};
-use bench_common::{Backend, geo_workload::GEO_COMMAND, workload::ROW_COUNT};
+use anyhow::Result;
+use bench_common::{
+    Backend,
+    database::{fresh_sqlite_path, postgres_url},
+    school::{SchoolInput, rows_from_args},
+};
+use diesel::{Connection as _, QueryResult};
+use diesel_demo::crud;
 
 fn main() -> Result<()> {
     let backend = Backend::Sqlite;
 
-    let arg = env::args().nth(1);
-    let mut out = std::io::stdout();
-    if arg.as_deref() == Some(GEO_COMMAND) {
-        writeln!(out, "{}", geospatial::run()?)?;
-        return Ok(());
-    }
-    let rows = match arg {
-        Some(arg) => arg.parse().context("rows must be a whole number")?,
-        None => ROW_COUNT,
+    let url = match backend {
+        Backend::Sqlite => fresh_sqlite_path("diesel")?.display().to_string(),
+        Backend::Postgres => postgres_url("talk_diesel"),
     };
-    writeln!(
-        out,
-        "diesel/{backend}: {}",
-        version::library_version(backend)?
-    )?;
-    writeln!(out, "{}", inserts::insert_rows(backend, rows)?)?;
+    let mut conn = crud::connect(&url)?;
+
+    let school = crud::create(&mut conn, &SchoolInput::example())?;
+    println!("created   {school:?}");
+    println!("retrieved {:?}", crud::retrieve(&mut conn, school.id)?);
+    let moved = SchoolInput {
+        lat: -37.8695,
+        ..SchoolInput::example()
+    };
+    println!(
+        "updated   {:?}",
+        crud::update(&mut conn, school.id, &moved)?
+    );
+    println!("deleted   {}", crud::delete(&mut conn, school.id)?);
+
+    let rows = rows_from_args()?;
+    let start = Instant::now();
+    conn.transaction(|conn| {
+        for i in 0..rows {
+            crud::create(conn, &SchoolInput::numbered(i))?;
+        }
+        QueryResult::Ok(())
+    })?;
+    println!(
+        "diesel/{backend:?}: {rows} creates in {:.2?}",
+        start.elapsed()
+    );
     Ok(())
 }

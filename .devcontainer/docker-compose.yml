@@ -10,7 +10,6 @@ services:
       - cargo-registry:/usr/local/cargo/registry
       - target:/workspaces/rust-databases-talk/target
     environment:
-      POSTGRES_URL: postgres://talk:talk@postgres:5432/talk
       PGHOST: postgres
       PGUSER: talk
       PGPASSWORD: talk
@@ -31,6 +30,7 @@ services:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
+      - ./postgres-init/20-databases.sql:/docker-entrypoint-initdb.d/20-databases.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U talk -d talk"]
       interval: 2s

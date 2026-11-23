@@ -1,6 +1,6 @@
 [package]
 name = "seaorm-demo"
-description = "SeaORM: an async, dynamic ORM built on sqlx, on SQLite or Postgres."
+default-run = "seaorm-demo"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -9,10 +9,9 @@ publish.workspace = true
 [dependencies]
 anyhow.workspace = true
 bench-common.workspace = true
-chrono.workspace = true
 sea-orm.workspace = true
+sea-orm-migration.workspace = true
 tokio.workspace = true
-
 uuid.workspace = true
 
 [lints]

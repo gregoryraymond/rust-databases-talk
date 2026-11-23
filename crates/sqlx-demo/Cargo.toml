@@ -1,6 +1,6 @@
 [package]
 name = "sqlx-demo"
-description = "sqlx: async SQL with compile-time checked queries and no DSL, on SQLite or Postgres."
+default-run = "sqlx-demo"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -12,7 +12,6 @@ bench-common.workspace = true
 chrono.workspace = true
 sqlx.workspace = true
 tokio.workspace = true
-
 uuid.workspace = true
 
 [lints]

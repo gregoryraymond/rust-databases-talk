@@ -1,15 +1,13 @@
 use super::*;
 
 #[test]
-fn removes_an_earlier_runs_file() {
-    let path = fresh_database("bench-common-test").unwrap();
+fn fresh_sqlite_path_removes_an_earlier_file() {
+    let path = fresh_sqlite_path("bench-common-test").unwrap();
     fs::write(&path, b"stale").unwrap();
-    let again = fresh_database("bench-common-test").unwrap();
-    assert_eq!(path, again);
-    assert!(!again.exists());
+    assert!(!fresh_sqlite_path("bench-common-test").unwrap().exists());
 }
 
 #[test]
-fn postgres_url_is_never_empty() {
-    assert!(postgres_url().starts_with("postgres://"));
+fn postgres_url_names_the_database() {
+    assert!(postgres_url("talk_sqlx").ends_with("/talk_sqlx"));
 }

@@ -1,31 +1,34 @@
-//! rusqlite: an ergonomic synchronous wrapper over the SQLite C library.
-//!
-//! Prints the linked SQLite version, then times inserting `[rows]` rows
-//! (default: [`ROW_COUNT`]) into a fresh database file.
-//! With `geo` as the argument, runs the geospatial example instead.
+use std::time::Instant;
 
-mod connection;
-mod geospatial;
-mod inserts;
-mod version;
-
-use std::{env, io::Write as _};
-
-use anyhow::{Context as _, Result};
-use bench_common::{geo_workload::GEO_COMMAND, workload::ROW_COUNT};
+use anyhow::Result;
+use bench_common::{
+    database::fresh_sqlite_path,
+    school::{SchoolInput, rows_from_args},
+};
 
 fn main() -> Result<()> {
-    let arg = env::args().nth(1);
-    let mut out = std::io::stdout();
-    if arg.as_deref() == Some(GEO_COMMAND) {
-        writeln!(out, "{}", geospatial::run()?)?;
-        return Ok(());
-    }
-    let rows = match arg {
-        Some(arg) => arg.parse().context("rows must be a whole number")?,
-        None => ROW_COUNT,
+    let mut conn = rusqlite_demo::open(&fresh_sqlite_path("rusqlite")?)?;
+
+    let school = rusqlite_demo::create(&conn, &SchoolInput::example())?;
+    println!("created   {school:?}");
+    println!("retrieved {:?}", rusqlite_demo::retrieve(&conn, school.id)?);
+    let moved = SchoolInput {
+        lat: -37.8695,
+        ..SchoolInput::example()
     };
-    writeln!(out, "rusqlite: SQLite {}", version::library_version()?)?;
-    writeln!(out, "{}", inserts::insert_rows(rows)?)?;
+    println!(
+        "updated   {:?}",
+        rusqlite_demo::update(&conn, school.id, &moved)?
+    );
+    println!("deleted   {}", rusqlite_demo::delete(&conn, school.id)?);
+
+    let rows = rows_from_args()?;
+    let start = Instant::now();
+    let tx = conn.transaction()?;
+    for i in 0..rows {
+        rusqlite_demo::create(&tx, &SchoolInput::numbered(i))?;
+    }
+    tx.commit()?;
+    println!("rusqlite/Sqlite: {rows} creates in {:.2?}", start.elapsed());
     Ok(())
 }

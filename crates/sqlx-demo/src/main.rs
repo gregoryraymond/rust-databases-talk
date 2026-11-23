@@ -1,38 +1,77 @@
-//! sqlx on SQLite or Postgres: async SQL with compile-time checked queries and no DSL.
-//!
-//! Prints the database version, then times inserting `[rows]` rows
-//! (default: [`ROW_COUNT`]) into a fresh table, on the backend chosen in `main`.
-//! With `geo` as the argument, runs the geospatial example instead.
+use std::time::Instant;
 
-mod connection;
-mod geospatial;
-mod inserts;
-mod version;
-
-use std::{env, io::Write as _};
-
-use anyhow::{Context as _, Result};
-use bench_common::{Backend, geo_workload::GEO_COMMAND, workload::ROW_COUNT};
+use anyhow::Result;
+use bench_common::{
+    Backend,
+    database::{fresh_sqlite_path, postgres_url},
+    school::{SchoolInput, rows_from_args},
+};
+use sqlx_demo::{postgres, sqlite};
 
 #[tokio::main]
 async fn main() -> Result<()> {
     let backend = Backend::Sqlite;
 
-    let arg = env::args().nth(1);
-    let mut out = std::io::stdout();
-    if arg.as_deref() == Some(GEO_COMMAND) {
-        writeln!(out, "{}", geospatial::run().await?)?;
-        return Ok(());
+    match backend {
+        Backend::Sqlite => run_sqlite().await,
+        Backend::Postgres => run_postgres().await,
     }
-    let rows = match arg {
-        Some(arg) => arg.parse().context("rows must be a whole number")?,
-        None => ROW_COUNT,
+}
+
+async fn run_sqlite() -> Result<()> {
+    let path = fresh_sqlite_path("sqlx")?;
+    let pool = sqlite::connect(&format!("sqlite://{}?mode=rwc", path.display())).await?;
+
+    let school = sqlite::create(&pool, &SchoolInput::example()).await?;
+    println!("created   {school:?}");
+    println!("retrieved {:?}", sqlite::retrieve(&pool, school.id).await?);
+    let moved = SchoolInput {
+        lat: -37.8695,
+        ..SchoolInput::example()
     };
-    writeln!(
-        out,
-        "sqlx/{backend}: {}",
-        version::library_version(backend).await?
-    )?;
-    writeln!(out, "{}", inserts::insert_rows(backend, rows).await?)?;
+    println!(
+        "updated   {:?}",
+        sqlite::update(&pool, school.id, &moved).await?
+    );
+    println!("deleted   {}", sqlite::delete(&pool, school.id).await?);
+
+    let rows = rows_from_args()?;
+    let start = Instant::now();
+    let mut tx = pool.begin().await?;
+    for i in 0..rows {
+        sqlite::create(&mut *tx, &SchoolInput::numbered(i)).await?;
+    }
+    tx.commit().await?;
+    println!("sqlx/Sqlite: {rows} creates in {:.2?}", start.elapsed());
+    Ok(())
+}
+
+async fn run_postgres() -> Result<()> {
+    let pool = postgres::connect(&postgres_url("talk_sqlx")).await?;
+
+    let school = postgres::create(&pool, &SchoolInput::example()).await?;
+    println!("created   {school:?}");
+    println!(
+        "retrieved {:?}",
+        postgres::retrieve(&pool, school.id).await?
+    );
+    let moved = SchoolInput {
+        lat: -37.8695,
+        ..SchoolInput::example()
+    };
+    println!(
+        "updated   {:?}",
+        postgres::update(&pool, school.id, &moved).await?
+    );
+    println!("deleted   {}", postgres::delete(&pool, school.id).await?);
+
+    let rows = rows_from_args()?;
+    let start = Instant::now();
+    let mut tx = pool.begin().await?;
+    for i in 0..rows {
+        postgres::create(&mut *tx, &SchoolInput::numbered(i)).await?;
+    }
+    tx.commit().await?;
+    println!("sqlx/Postgres: {rows} creates in {:.2?}", start.elapsed());
     Ok(())
 }

@@ -1,94 +1,74 @@
-//! School CRUD through synchronous Diesel, over an r2d2 pool.
-
-use bench_common::school::{SchoolInput, SchoolRecord};
-use diesel::{
-    pg::PgConnection,
-    prelude::*,
-    r2d2::{ConnectionManager, Pool, PoolError},
-};
+use bench_common::school::{School, SchoolInput};
+use diesel::{pg::PgConnection, prelude::*, sqlite::SqliteConnection};
+use diesel_migrations::{EmbeddedMigrations, MigrationHarness as _, embed_migrations};
 use uuid::Uuid;
 
 use crate::{
-    models::{NewSchool, SchoolChanges, SchoolRow},
+    models::{SchoolChanges, SchoolRow},
     schema::school,
 };
 
-/// A pool of blocking Postgres connections.
-pub type PgPool = Pool<ConnectionManager<PgConnection>>;
+/// The SQL in `migrations/postgres`, compiled into the binary.
+const POSTGRES_MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations/postgres");
 
-/// A pool for `url`.
-///
-/// # Errors
-///
-/// Fails if the first connection cannot be made.
-pub fn pool(url: &str) -> Result<PgPool, PoolError> {
-    Pool::builder().build(ConnectionManager::new(url))
+/// The SQL in `migrations/sqlite`, compiled into the binary.
+const SQLITE_MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations/sqlite");
+
+#[derive(diesel::MultiConnection)]
+pub enum AnyConnection {
+    Postgres(PgConnection),
+    Sqlite(SqliteConnection),
 }
 
-/// Inserts a school.
-///
-/// # Errors
-///
-/// Fails if the insert does.
-pub fn create(conn: &mut PgConnection, input: &SchoolInput) -> QueryResult<SchoolRecord> {
-    let record = SchoolRecord::new(input);
+pub fn connect(url: &str) -> anyhow::Result<AnyConnection> {
+    let mut conn = AnyConnection::establish(url)?;
+    let migrated = match &mut conn {
+        AnyConnection::Postgres(c) => c.run_pending_migrations(POSTGRES_MIGRATIONS).map(|_| ()),
+        AnyConnection::Sqlite(c) => c.run_pending_migrations(SQLITE_MIGRATIONS).map(|_| ()),
+    };
+    migrated.map_err(|e| anyhow::anyhow!(e))?;
+    Ok(conn)
+}
+
+pub fn create(conn: &mut AnyConnection, input: &SchoolInput) -> QueryResult<School> {
+    let new = School::new(input);
     diesel::insert_into(school::table)
-        .values(NewSchool::from(&record))
+        .values(SchoolRow::from(&new))
         .execute(conn)?;
-    Ok(record)
+    Ok(new)
 }
 
-/// One school by id.
-///
-/// # Errors
-///
-/// Fails if the query does.
-pub fn get(conn: &mut PgConnection, id: Uuid) -> QueryResult<Option<SchoolRecord>> {
+pub fn retrieve(conn: &mut AnyConnection, id: Uuid) -> QueryResult<Option<School>> {
     let row = school::table
-        .find(id)
+        .find(id.as_bytes().as_slice())
         .select(SchoolRow::as_select())
         .first(conn)
         .optional()?;
-    Ok(row.map(SchoolRecord::from))
+    Ok(row.map(School::from))
 }
 
-/// Every school, oldest first.
-///
-/// # Errors
-///
-/// Fails if the query does.
-pub fn list(conn: &mut PgConnection) -> QueryResult<Vec<SchoolRecord>> {
-    let rows = school::table
-        .order(school::id)
-        .select(SchoolRow::as_select())
-        .load(conn)?;
-    Ok(rows.into_iter().map(SchoolRecord::from).collect())
-}
-
-/// Replaces a school's fields, returning the new row, or `None` if there is no such school.
-///
-/// # Errors
-///
-/// Fails if the update does.
 pub fn update(
-    conn: &mut PgConnection,
+    conn: &mut AnyConnection,
     id: Uuid,
     input: &SchoolInput,
-) -> QueryResult<Option<SchoolRecord>> {
-    let row = diesel::update(school::table.find(id))
+) -> QueryResult<Option<School>> {
+    diesel::update(school::table.find(id.as_bytes().as_slice()))
         .set(SchoolChanges::from(input))
-        .returning(SchoolRow::as_returning())
-        .get_result(conn)
-        .optional()?;
-    Ok(row.map(SchoolRecord::from))
+        .execute(conn)?;
+    retrieve(conn, id)
 }
 
-/// Deletes a school, returning whether there was one.
-///
-/// # Errors
-///
-/// Fails if the delete does.
-pub fn delete(conn: &mut PgConnection, id: Uuid) -> QueryResult<bool> {
-    let deleted = diesel::delete(school::table.find(id)).execute(conn)?;
+pub fn delete(conn: &mut AnyConnection, id: Uuid) -> QueryResult<bool> {
+    let deleted = diesel::delete(school::table.find(id.as_bytes().as_slice())).execute(conn)?;
     Ok(deleted > 0)
+}
+
+pub fn page(conn: &mut AnyConnection, after: Uuid, size: i64) -> QueryResult<Vec<School>> {
+    let rows = school::table
+        .filter(school::id.gt(after.as_bytes().as_slice()))
+        .order(school::id)
+        .limit(size)
+        .select(SchoolRow::as_select())
+        .load(conn)?;
+    Ok(rows.into_iter().map(School::from).collect())
 }

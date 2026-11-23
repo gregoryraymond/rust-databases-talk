@@ -1,6 +1,6 @@
 [package]
 name = "diesel-demo"
-description = "Diesel: a compile-time checked query builder and ORM, on SQLite or Postgres."
+default-run = "diesel-demo"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -12,8 +12,10 @@ bench-common.workspace = true
 chrono.workspace = true
 diesel.workspace = true
 diesel-async.workspace = true
+diesel_migrations.workspace = true
 libsqlite3-sys.workspace = true
 postgis_diesel.workspace = true
+tokio.workspace = true
 uuid.workspace = true
 
 [lints]

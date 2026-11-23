@@ -10,10 +10,18 @@
     <style>
         .reveal pre { font-size: 0.4em; width: 100%; margin: 0.3em 0; }
         .reveal pre code { max-height: 560px; }
+        .reveal pre code.hljs, .reveal pre code { white-space: pre-wrap !important; overflow-wrap: anywhere; overflow-x: hidden; }
         .reveal p.source { font-size: 0.4em; color: #999; margin: 0 0 0.6em; text-align: right; }
         .reveal table { font-size: 0.6em; }
-        .cols { display: flex; align-items: center; gap: 1.5em; }
+        .cols { display: flex; align-items: flex-start; gap: 1em; }
+        .cols pre { font-size: 0.34em; }
         .cols > div { flex: 1; min-width: 0; }
+        .logos { display: flex; justify-content: center; align-items: flex-end; gap: 1.2em; margin-top: 1.2em; }
+        .logos figure { margin: 0; width: 140px; text-align: center; }
+        .reveal .logos img { height: 110px; width: 110px; object-fit: contain; margin: 0; }
+        .reveal .logos .no-logo { height: 110px; line-height: 110px; font-size: 96px; color: #e53935; }
+        .reveal .logos .emoji-logo { height: 110px; line-height: 110px; font-size: 88px; }
+        .reveal .logos h4 { margin: 0.3em 0 0; font-size: 0.55em; text-transform: none; }
     </style>
 </head>
 <body>
@@ -21,12 +29,19 @@
         <div class="slides">
             <section>
                 <h1>Databases in Rust</h1>
-                <p>Diesel, SeaORM, sqlx, rusqlite and Turso on SQLite and Postgres</p>
+                <p>ORMs n SQL</p>
+                <div class="logos">
+                    <figure><img src="img/diesel.png" alt="Diesel" /><h4>Diesel</h4></figure>
+                    <figure><img src="img/seaorm.png" alt="SeaORM" /><h4>SeaORM</h4></figure>
+                    <figure><div class="emoji-logo">🧰</div><h4>sqlx</h4></figure>
+                    <figure><div class="no-logo">&#10007;</div><h4>rusqlite</h4></figure>
+                    <figure><img src="img/turso.svg" alt="Turso" /><h4>Turso</h4></figure>
+                </div>
                 <aside class="notes">
                     <ul>
                         <li>Five libraries, same tables, SQLite and Postgres</li>
                         <li>ORMs first, then raw SQL, then the low-level libraries</li>
-                        <li>Ends with benchmarks and connection pooling</li>
+                        <li>Ends with benchmarks and showing a simple server and talking through some of the reasons you might use these different frameworks</li>
                     </ul>
                 </aside>
             </section>
@@ -39,12 +54,12 @@
                     <li>sqlx and keyset pagination</li>
                     <li>rusqlite and Turso</li>
                     <li>Geospatial</li>
-                    <li>Benchmarks</li>
                     <li>Connection pooling</li>
+                    <li>Benchmarks</li>
                 </ul>
                 <aside class="notes">
                     <ul>
-                        <li>Simple CRUD in each: create, retrieve, update, delete</li>
+                        <li>Simple CRUD in each: create, retrieve, update, delete - to make a catalogue of schools for a property reporting app</li>
                         <li>Benchmark tests in <code>bench-common</code>: millions of inserts</li>
                         <li>Which are fastest, which have issues, which aren't production-ready</li>
                         <li>Turso: a rewrite of SQLite in pure Rust</li>
@@ -59,10 +74,6 @@
                     <aside class="notes">
                         <ul>
                             <li>The one I know best, used in production</li>
-                            <li>Structs for insert, and maybe update, with attributes on top</li>
-                            <li>Attributes give us the object-relational mapping</li>
-                            <li>Migrations folder: raw SQL</li>
-                            <li>Not a fan, but you should know your tables and indexes anyway</li>
                         </ul>
                     </aside>
                 </section>
@@ -71,44 +82,134 @@
                     <div class="cols">
                         <div>
 <pre><code class="language-rust" data-trim data-source="crates/diesel-demo/src/models.rs">
-#[derive(Insertable)]
+#[derive(Queryable, Selectable, Insertable)]
 #[diesel(table_name = school)]
-pub struct NewSchool&lt;'a&gt; {
-    pub id: Uuid,
-    pub name: &amp;'a str,
-    pub sector: &amp;'a str,
-    pub school_type: &amp;'a str,
-    pub location: Point,
-    pub created_at: DateTime&lt;Utc&gt;,
-    pub updated_at: DateTime&lt;Utc&gt;,
+pub struct SchoolRow {
+    pub id: Vec&lt;u8&gt;,
+    pub name: String,
+    pub lon: f64,
+    pub lat: f64,
+    pub created_at: NaiveDateTime,
 }
 </code></pre>
 <p class="source">crates/diesel-demo/src/models.rs</p>
                         </div>
                         <div>
 <pre><code class="language-rust" data-trim data-source="crates/diesel-demo/src/models.rs">
-#[derive(Queryable, Selectable)]
-#[diesel(table_name = school, check_for_backend(diesel::pg::Pg))]
-pub struct SchoolRow {
-    pub id: Uuid,
+#[derive(AsChangeset)]
+#[diesel(table_name = school)]
+pub struct SchoolChanges {
     pub name: String,
-    pub sector: String,
-    pub school_type: String,
-    pub location: Point,
-    pub created_at: DateTime&lt;Utc&gt;,
-    pub updated_at: DateTime&lt;Utc&gt;,
+    pub lon: f64,
+    pub lat: f64,
 }
 </code></pre>
 <p class="source">crates/diesel-demo/src/models.rs</p>
+<pre><code class="language-rust" data-trim data-source="crates/diesel-demo/src/schema.rs">
+diesel::table! {
+    school (id) {
+        id -&gt; Binary,
+        name -&gt; Text,
+        lon -&gt; Double,
+        lat -&gt; Double,
+        created_at -&gt; Timestamp,
+    }
+}
+</code></pre>
+<p class="source">crates/diesel-demo/src/schema.rs</p>
                         </div>
                     </div>
                     <aside class="notes">
                         <ul>
                             <li>Attributes tell Diesel how to serialize to and from the database</li>
-                            <li>Field annotations change how individual fields are stored</li>
-                            <li>Examples: <code>Uuid</code>, <code>DateTime&lt;Utc&gt;</code>, and a PostGIS <code>Point</code></li>
-                            <li>Geospatial: maps, properties, areas over time</li>
-                            <li>With PostGIS, the same types in Rust and the database</li>
+                            <li>One struct to insert, and a different struct for updates</li>
+                            <li>Made it very simple we store the UUID as bytes, timestamps in UTC</li>
+                        </ul>
+                    </aside>
+                </section>
+                <section>
+                    <h3>Different Databases</h3>
+<pre><code class="language-rust" data-trim data-source="crates/diesel-demo/src/crud.rs">
+#[derive(diesel::MultiConnection)]
+pub enum AnyConnection {
+    Postgres(PgConnection),
+    Sqlite(SqliteConnection),
+}
+</code></pre>
+<p class="source">crates/diesel-demo/src/crud.rs</p>
+<pre><code class="language-rust" data-trim data-source="crates/diesel-demo/src/crud.rs">
+use bench_common::school::{School, SchoolInput};
+use diesel::{pg::PgConnection, prelude::*, sqlite::SqliteConnection};
+use diesel_migrations::{EmbeddedMigrations, MigrationHarness as _, embed_migrations};
+use uuid::Uuid;
+
+use crate::{
+    models::{SchoolChanges, SchoolRow},
+    schema::school,
+};
+</code></pre>
+<pre><code class="language-rust" data-trim data-source="crates/diesel-demo/src/crud.rs">
+pub fn create(conn: &amp;mut AnyConnection, input: &amp;SchoolInput) -&gt; QueryResult&lt;School&gt; {
+    let new = School::new(input);
+    diesel::insert_into(school::table)
+        .values(SchoolRow::from(&amp;new))
+        .execute(conn)?;
+    Ok(new)
+}
+</code></pre>
+<p class="source">crates/diesel-demo/src/crud.rs</p>
+                    <aside class="notes">
+                        <ul>
+                            <li><code>MultiConnection</code>: an enum over real connections</li>
+                            <li>The derive tries each variant in order: Postgres, then SQLite, first one that connects wins</li>
+                            <li>Every call after that is a <code>match</code> forwarding to whichever connection it holds</li>
+                            <li>The same <code>create</code> runs on either; the URL picks the backend</li>
+                            <li>The catch: only SQL types every backend supports</li>
+                        </ul>
+                    </aside>
+                </section>
+                <section>
+                    <h3>Diesel migrations</h3>
+                    <div class="cols">
+                        <div>
+<pre><code class="language-sql" data-trim data-source="crates/diesel-demo/migrations/postgres/2026-11-22-000001_create_school/up.sql">
+CREATE TABLE school (
+    id BYTEA PRIMARY KEY,
+    name TEXT NOT NULL,
+    lon DOUBLE PRECISION NOT NULL,
+    lat DOUBLE PRECISION NOT NULL,
+    created_at TIMESTAMP NOT NULL
+);
+</code></pre>
+<p class="source">crates/diesel-demo/migrations/postgres/2026-11-22-000001_create_school/up.sql</p>
+                        </div>
+                        <div>
+<pre><code class="language-rust" data-trim data-source="crates/diesel-demo/src/crud.rs">
+const POSTGRES_MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations/postgres");
+
+const SQLITE_MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations/sqlite");
+</code></pre>
+<p class="source">crates/diesel-demo/src/crud.rs</p>
+<pre><code class="language-rust" data-trim data-source="crates/diesel-demo/src/crud.rs">
+pub fn connect(url: &amp;str) -&gt; anyhow::Result&lt;AnyConnection&gt; {
+    let mut conn = AnyConnection::establish(url)?;
+    let migrated = match &amp;mut conn {
+        AnyConnection::Postgres(c) =&gt; c.run_pending_migrations(POSTGRES_MIGRATIONS).map(|_| ()),
+        AnyConnection::Sqlite(c) =&gt; c.run_pending_migrations(SQLITE_MIGRATIONS).map(|_| ()),
+    };
+    migrated.map_err(|e| anyhow::anyhow!(e))?;
+    Ok(conn)
+}
+</code></pre>
+<p class="source">crates/diesel-demo/src/crud.rs</p>
+                        </div>
+                    </div>
+                    <aside class="notes">
+                        <ul>
+                            <li>A migrations folder of raw SQL: <code>up.sql</code> and <code>down.sql</code></li>
+                            <li>One folder per backend: <code>migrations/postgres</code>, <code>migrations/sqlite</code></li>
+                            <li><code>embed_migrations!</code> compiles them into the binary</li>
+                            <li>This allows you to make sure your schema is updated before you start.</li>
                         </ul>
                     </aside>
                 </section>
@@ -117,42 +218,28 @@ pub struct SchoolRow {
                     <div class="cols">
                         <div>
 <pre><code class="language-rust" data-trim data-source="crates/diesel-demo/src/crud.rs">
-pub fn get(conn: &amp;mut PgConnection, id: Uuid) -&gt; QueryResult&lt;Option&lt;SchoolRecord&gt;&gt; {
+pub fn retrieve(conn: &amp;mut AnyConnection, id: Uuid) -&gt; QueryResult&lt;Option&lt;School&gt;&gt; {
     let row = school::table
-        .find(id)
+        .find(id.as_bytes().as_slice())
         .select(SchoolRow::as_select())
         .first(conn)
         .optional()?;
-    Ok(row.map(SchoolRecord::from))
+    Ok(row.map(School::from))
 }
 </code></pre>
 <p class="source">crates/diesel-demo/src/crud.rs</p>
-<pre><code class="language-rust" data-trim data-source="crates/diesel-demo/src/models.rs">
-#[derive(AsChangeset)]
-#[diesel(table_name = school)]
-pub struct SchoolChanges&lt;'a&gt; {
-    pub name: &amp;'a str,
-    pub sector: &amp;'a str,
-    pub school_type: &amp;'a str,
-    pub location: Point,
-    pub updated_at: DateTime&lt;Utc&gt;,
-}
-</code></pre>
-<p class="source">crates/diesel-demo/src/models.rs</p>
                         </div>
                         <div>
 <pre><code class="language-rust" data-trim data-source="crates/diesel-demo/src/crud.rs">
 pub fn update(
-    conn: &amp;mut PgConnection,
+    conn: &amp;mut AnyConnection,
     id: Uuid,
     input: &amp;SchoolInput,
-) -&gt; QueryResult&lt;Option&lt;SchoolRecord&gt;&gt; {
-    let row = diesel::update(school::table.find(id))
+) -&gt; QueryResult&lt;Option&lt;School&gt;&gt; {
+    diesel::update(school::table.find(id.as_bytes().as_slice()))
         .set(SchoolChanges::from(input))
-        .returning(SchoolRow::as_returning())
-        .get_result(conn)
-        .optional()?;
-    Ok(row.map(SchoolRecord::from))
+        .execute(conn)?;
+    retrieve(conn, id)
 }
 </code></pre>
 <p class="source">crates/diesel-demo/src/crud.rs</p>
@@ -162,7 +249,97 @@ pub fn update(
                         <ul>
                             <li>What a select looks like</li>
                             <li>Updates need their own struct: <code>SchoolChanges</code></li>
-                            <li>Duplicated objects: a bit nasty</li>
+                        </ul>
+                    </aside>
+                </section>
+                <section>
+                    <h3>What <code>.find</code> and <code>as_select()</code> expand to</h3>
+                    <div class="cols">
+                        <div>
+                            <p style="font-size: 0.45em; text-align: left; margin: 0 0 0.3em;">The query, written out</p>
+<pre><code class="language-rust" data-trim>
+school::table
+    .filter(school::id.eq(id.as_bytes().as_slice()))
+    .select((
+        school::id,
+        school::name,
+        school::lon,
+        school::lat,
+        school::created_at,
+    ))
+    .first::&lt;SchoolRow&gt;(conn)
+</code></pre>
+                        </div>
+                        <div>
+                            <p style="font-size: 0.45em; text-align: left; margin: 0 0 0.3em;">What <code>#[derive(Selectable)]</code> generates</p>
+<pre><code class="language-rust" data-trim>
+impl&lt;DB: Backend&gt; Selectable&lt;DB&gt; for SchoolRow {
+    type SelectExpression = (
+        school::id,
+        school::name,
+        school::lon,
+        school::lat,
+        school::created_at,
+    );
+
+    fn construct_selection() -&gt; Self::SelectExpression {
+        (
+            school::id,
+            school::name,
+            school::lon,
+            school::lat,
+            school::created_at,
+        )
+    }
+}
+</code></pre>
+                        </div>
+                    </div>
+                    <aside class="notes">
+                        <ul>
+                            <li><code>.find(id)</code> is <code>.filter(school::id.eq(id))</code> on the primary key</li>
+                            <li><code>as_select()</code> builds the column list from the struct's field names</li>
+                            <li>Columns are matched by name, so swapped fields are a compile error, not wrong data</li>
+                            <li>One of the downsides is duplication of objects</li>
+                        </ul>
+                    </aside>
+                </section>
+                <section>
+                    <h3>What <code>SchoolChanges::from</code> expands to</h3>
+                    <div class="cols">
+                        <div>
+                            <p style="font-size: 0.45em; text-align: left; margin: 0 0 0.3em;">The conversion</p>
+<pre><code class="language-rust" data-trim data-source="crates/diesel-demo/src/models.rs">
+impl From&lt;&amp;SchoolInput&gt; for SchoolChanges {
+    fn from(i: &amp;SchoolInput) -&gt; Self {
+        Self {
+            name: i.name.clone(),
+            lon: i.lon,
+            lat: i.lat,
+        }
+    }
+}
+</code></pre>
+<p class="source">crates/diesel-demo/src/models.rs</p>
+                        </div>
+                        <div>
+                            <p style="font-size: 0.45em; text-align: left; margin: 0 0 0.3em;">The update, with <code>#[derive(AsChangeset)]</code> written out</p>
+<pre><code class="language-rust" data-trim>
+diesel::update(school::table.find(id.as_bytes().as_slice()))
+    .set((
+        school::name.eq(&amp;input.name),
+        school::lon.eq(input.lon),
+        school::lat.eq(input.lat),
+    ))
+    .execute(conn)?;
+</code></pre>
+                        </div>
+                    </div>
+                    <aside class="notes">
+                        <ul>
+                            <li><code>From</code> copies the fields the update may change out of the request</li>
+                            <li><code>AsChangeset</code> turns each field into <code>column.eq(value)</code>: <code>SET name = ?, lon = ?, lat = ?</code></li>
+                            <li>The id and <code>created_at</code> aren't in the struct, so they're never touched</li>
                         </ul>
                     </aside>
                 </section>
@@ -171,8 +348,8 @@ pub fn update(
                     <div class="cols">
                         <div>
 <pre><code class="language-rust" data-trim data-source="crates/diesel-demo/src/crud.rs">
-pub fn delete(conn: &amp;mut PgConnection, id: Uuid) -&gt; QueryResult&lt;bool&gt; {
-    let deleted = diesel::delete(school::table.find(id)).execute(conn)?;
+pub fn delete(conn: &amp;mut AnyConnection, id: Uuid) -&gt; QueryResult&lt;bool&gt; {
+    let deleted = diesel::delete(school::table.find(id.as_bytes().as_slice())).execute(conn)?;
     Ok(deleted &gt; 0)
 }
 </code></pre>
@@ -181,7 +358,9 @@ pub fn delete(conn: &amp;mut PgConnection, id: Uuid) -&gt; QueryResult&lt;bool&g
                         <div>
 <pre><code class="language-rust" data-trim data-source="crates/diesel-demo/src/crud_async.rs">
 pub async fn delete(conn: &amp;mut AsyncPgConnection, id: Uuid) -&gt; QueryResult&lt;bool&gt; {
-    let deleted = diesel::delete(school::table.find(id)).execute(conn).await?;
+    let deleted = diesel::delete(school::table.find(id.as_bytes().as_slice()))
+        .execute(conn)
+        .await?;
     Ok(deleted &gt; 0)
 }
 </code></pre>
@@ -204,18 +383,12 @@ pub async fn delete(conn: &amp;mut AsyncPgConnection, id: Uuid) -&gt; QueryResul
 pub trait SchoolApi {
     type Context;
 
-    #[endpoint { method = GET, path = "/{library}/schools" }]
-    async fn list_schools(
-        rqctx: RequestContext&lt;Self::Context&gt;,
-        path: Path&lt;LibraryPath&gt;,
-    ) -&gt; Result&lt;HttpResponseOk&lt;Vec&lt;SchoolRecord&gt;&gt;, HttpError&gt;;
-
     #[endpoint { method = POST, path = "/{library}/schools" }]
     async fn create_school(
         rqctx: RequestContext&lt;Self::Context&gt;,
         path: Path&lt;LibraryPath&gt;,
         body: TypedBody&lt;SchoolInput&gt;,
-    ) -&gt; Result&lt;HttpResponseCreated&lt;SchoolRecord&gt;, HttpError&gt;;
+    ) -&gt; Result&lt;HttpResponseCreated&lt;School&gt;, HttpError&gt;;
 </code></pre>
 <p class="source">crates/school-api/src/api.rs</p>
                     <aside class="notes">
@@ -232,16 +405,15 @@ pub trait SchoolApi {
 <pre><code class="language-rust" data-trim data-source="crates/school-api/src/main.rs">
 school_api_mod::stub_api_description()
     .map_err(|e| anyhow!("{e}"))?
-    .openapi(API_TITLE, semver::Version::new(0, 1, 0))
-    .write(&amp;mut io::stdout())
-    .context("writing the OpenAPI document")?;
+    .openapi("Schools", semver::Version::new(0, 1, 0))
+    .write(&amp;mut io::stdout())?;
 </code></pre>
 <p class="source">crates/school-api/src/main.rs</p>
                     <aside class="notes">
                         <ul>
                             <li>Like Utoipa: OpenAPI from Rust code</li>
                             <li>Stub description: no implementation needed</li>
-                            <li><code>just openapi</code> writes <code>openapi.json</code></li>
+                            <li><code>cargo run -p school-api -- openapi</code> prints the spec</li>
                         </ul>
                     </aside>
                 </section>
@@ -252,7 +424,7 @@ async fn create_school(
     rqctx: RequestContext&lt;Database&gt;,
     path: Path&lt;LibraryPath&gt;,
     body: TypedBody&lt;SchoolInput&gt;,
-) -&gt; Result&lt;HttpResponseCreated&lt;SchoolRecord&gt;, HttpError&gt; {
+) -&gt; Result&lt;HttpResponseCreated&lt;School&gt;, HttpError&gt; {
     let library = path.into_inner().library;
     let school = rqctx
         .context()
@@ -272,7 +444,7 @@ async fn create_school(
                 <section>
                     <h3>database.rs</h3>
 <pre><code class="language-rust" data-trim data-source="crates/school-api/src/database.rs">
-pub async fn create(&amp;self, library: Library, input: SchoolInput) -&gt; Result&lt;SchoolRecord&gt; {
+pub async fn create(&amp;self, library: Library, input: SchoolInput) -&gt; Result&lt;School&gt; {
     Ok(match library {
         Library::Diesel =&gt; {
             let pool = self.diesel.clone();
@@ -282,13 +454,13 @@ pub async fn create(&amp;self, library: Library, input: SchoolInput) -&gt; Resul
             let mut conn = self.diesel_async.get().await?;
             diesel_demo::crud_async::create(&amp;mut conn, &amp;input).await?
         }
-        Library::Sqlx =&gt; sqlx_demo::crud::create(&amp;self.sqlx, &amp;input).await?,
+        Library::Sqlx =&gt; sqlx_demo::postgres::create(&amp;self.sqlx, &amp;input).await?,
         Library::Seaorm =&gt; seaorm_demo::crud::create(&amp;self.seaorm, &amp;input).await?,
         Library::Rusqlite =&gt; {
             let conn = Arc::clone(&amp;self.rusqlite);
-            blocking(move || Ok(rusqlite_demo::crud::create(&amp;*lock(&amp;conn)?, &amp;input)?)).await?
+            blocking(move || Ok(rusqlite_demo::create(&amp;*lock(&amp;conn)?, &amp;input)?)).await?
         }
-        Library::Turso =&gt; turso_demo::crud::create(&amp;self.turso.connect()?, &amp;input).await?,
+        Library::Turso =&gt; turso_demo::create(&amp;self.turso.connect()?, &amp;input).await?,
     })
 }
 </code></pre>
@@ -298,7 +470,6 @@ pub async fn create(&amp;self, library: Library, input: SchoolInput) -&gt; Resul
                             <li>All the CRUD calls in one file</li>
                             <li>Looks the same for every framework</li>
                             <li>Sync libraries go to a blocking thread; async ones are awaited</li>
-                            <li><code>just crud sqlx</code>: POST, GET, PUT, GET all, DELETE</li>
                         </ul>
                     </aside>
                 </section>
@@ -319,18 +490,15 @@ pub async fn create(&amp;self, library: Library, input: SchoolInput) -&gt; Resul
                 <section>
                     <h3>Entity</h3>
 <pre><code class="language-rust" data-trim data-source="crates/seaorm-demo/src/school.rs">
-use sea_orm::entity::prelude::*;
-
-#[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel)]
+#[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
 #[sea_orm(table_name = "school")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: Uuid,
     pub name: String,
-    pub sector: String,
-    pub school_type: String,
+    pub lon: f64,
+    pub lat: f64,
     pub created_at: DateTimeUtc,
-    pub updated_at: DateTimeUtc,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -342,56 +510,56 @@ impl ActiveModelBehavior for ActiveModel {}
                     <aside class="notes">
                         <ul>
                             <li>One <code>Model</code> struct per table, derive does the rest</li>
-                            <li>No geometry type: the <code>location</code> column is left out</li>
+                            <li>The same entity on SQLite and Postgres</li>
+                            <li><code>DeriveEntityModel</code> also generates <code>Entity</code>, <code>Column</code>, <code>PrimaryKey</code> and <code>ActiveModel</code> from the struct</li>
+                            <li><code>Relation</code>: this table's links to other entities, its foreign keys</li>
+                            <li>Each variant is <code>#[sea_orm(belongs_to = ...)]</code> or <code>has_many = ...</code>; <code>DeriveRelation</code> turns them into join definitions</li>
+                            <li>That's what powers <code>find_with_related</code>, <code>find_also_related</code> and <code>.join(...)</code></li>
+                            <li>Empty here: school has no foreign keys, and suburbs join by <code>ST_Contains</code>, which a relation can't express</li>
+                            <li>The derive still needs the enum to exist, even when it's empty</li>
+                            <li><code>ActiveModelBehavior</code>: lifecycle hooks on the <code>ActiveModel</code></li>
+                            <li>Hooks: <code>new</code>, <code>before_save</code>, <code>after_save</code>, <code>before_delete</code>, <code>after_delete</code></li>
+                            <li>All have defaults that do nothing, so the empty <code>impl</code> just opts in</li>
+                            <li>Use them to set <code>updated_at</code>, validate, or reject a save, e.g. return <code>Err</code> from <code>before_save</code></li>
+                            <li>Without the impl, <code>insert</code>, <code>update</code> and <code>save</code> on an <code>ActiveModel</code> don't compile</li>
                         </ul>
                     </aside>
                 </section>
                 <section>
                     <h3>Create</h3>
 <pre><code class="language-rust" data-trim data-source="crates/seaorm-demo/src/crud.rs">
-pub async fn create(db: &amp;DatabaseConnection, input: &amp;SchoolInput) -&gt; Result&lt;SchoolRecord, DbErr&gt; {
-    let record = SchoolRecord::new(input);
-    db.execute_raw(Statement::from_sql_and_values(
-        DbBackend::Postgres,
-        postgis::INSERT_SCHOOL,
-        [
-            record.id.into(),
-            record.name.clone().into(),
-            record.sector.clone().into(),
-            record.school_type.clone().into(),
-            record.lon.into(),
-            record.lat.into(),
-            record.created_at.into(),
-        ],
-    ))
-    .await?;
-    Ok(record)
+pub async fn create(db: &amp;impl ConnectionTrait, input: &amp;SchoolInput) -&gt; Result&lt;School, DbErr&gt; {
+    let new = School::new(input);
+    let model = school::ActiveModel {
+        id: Set(new.id),
+        name: Set(new.name.clone()),
+        lon: Set(new.lon),
+        lat: Set(new.lat),
+        created_at: Set(new.created_at),
+    };
+    school::Entity::insert(model).exec(db).await?;
+    Ok(new)
 }
 </code></pre>
 <p class="source">crates/seaorm-demo/src/crud.rs</p>
                     <aside class="notes">
                         <ul>
-                            <li>Geometry means a raw statement with bound values</li>
+                            <li>An <code>ActiveModel</code> with every field <code>Set</code></li>
+                            <li><code>&amp;impl ConnectionTrait</code>: a connection or a transaction</li>
                         </ul>
                     </aside>
                 </section>
                 <section>
                     <h3>Retrieve and delete</h3>
 <pre><code class="language-rust" data-trim data-source="crates/seaorm-demo/src/crud.rs">
-pub async fn get(db: &amp;DatabaseConnection, id: Uuid) -&gt; Result&lt;Option&lt;SchoolRecord&gt;, DbErr&gt; {
-    let row = SchoolRow::find_by_statement(Statement::from_sql_and_values(
-        DbBackend::Postgres,
-        postgis::SELECT_SCHOOL_RECORD,
-        [id.into()],
-    ))
-    .one(db)
-    .await?;
-    Ok(row.map(SchoolRecord::from))
+pub async fn retrieve(db: &amp;impl ConnectionTrait, id: Uuid) -&gt; Result&lt;Option&lt;School&gt;, DbErr&gt; {
+    let model = school::Entity::find_by_id(id).one(db).await?;
+    Ok(model.map(School::from))
 }
 </code></pre>
 <p class="source">crates/seaorm-demo/src/crud.rs</p>
 <pre><code class="language-rust" data-trim data-source="crates/seaorm-demo/src/crud.rs">
-pub async fn delete(db: &amp;DatabaseConnection, id: Uuid) -&gt; Result&lt;bool, DbErr&gt; {
+pub async fn delete(db: &amp;impl ConnectionTrait, id: Uuid) -&gt; Result&lt;bool, DbErr&gt; {
     let deleted = school::Entity::delete_by_id(id).exec(db).await?;
     Ok(deleted.rows_affected &gt; 0)
 }
@@ -399,14 +567,55 @@ pub async fn delete(db: &amp;DatabaseConnection, id: Uuid) -&gt; Result&lt;bool,
 <p class="source">crates/seaorm-demo/src/crud.rs</p>
                     <aside class="notes">
                         <ul>
-                            <li>Read back through a <code>FromQueryResult</code> struct</li>
-                            <li>Plain columns: the entity and <code>delete_by_id</code></li>
+                            <li><code>find_by_id</code> and <code>delete_by_id</code>: no SQL</li>
                         </ul>
                     </aside>
                 </section>
                 <section>
-                    <h3>Migrations</h3>
-                    <p><em>To be filled...</em></p>
+                    <h3>Update</h3>
+<pre><code class="language-rust" data-trim data-source="crates/seaorm-demo/src/crud.rs">
+pub async fn update(
+    db: &amp;impl ConnectionTrait,
+    id: Uuid,
+    input: &amp;SchoolInput,
+) -&gt; Result&lt;Option&lt;School&gt;, DbErr&gt; {
+    let Some(model) = school::Entity::find_by_id(id).one(db).await? else {
+        return Ok(None);
+    };
+    let mut model: school::ActiveModel = model.into();
+    model.name = Set(input.name.clone());
+    model.lon = Set(input.lon);
+    model.lat = Set(input.lat);
+    Ok(Some(model.update(db).await?.into()))
+}
+</code></pre>
+<p class="source">crates/seaorm-demo/src/crud.rs</p>
+                    <aside class="notes">
+                        <ul>
+                            <li>Load the model, turn it into an <code>ActiveModel</code>, <code>Set</code> what changes</li>
+                            <li>Only changed columns are written</li>
+                        </ul>
+                    </aside>
+                </section>
+                <section>
+                    <h3>Migrations in Rust</h3>
+<pre><code class="language-rust" data-trim data-source="crates/seaorm-demo/src/migrations/m20261122_000001_create_school.rs">
+async fn up(&amp;self, manager: &amp;SchemaManager) -&gt; Result&lt;(), DbErr&gt; {
+    manager
+        .create_table(
+            Table::create()
+                .table(School::Table)
+                .col(pk_uuid(School::Id))
+                .col(string(School::Name))
+                .col(double(School::Lon))
+                .col(double(School::Lat))
+                .col(timestamp_with_time_zone(School::CreatedAt))
+                .to_owned(),
+        )
+        .await
+}
+</code></pre>
+<p class="source">crates/seaorm-demo/src/migrations/m20261122_000001_create_school.rs</p>
                     <aside class="notes">
                         <ul>
                             <li>Migrations are written in Rust, not SQL</li>
@@ -420,7 +629,7 @@ pub async fn delete(db: &amp;DatabaseConnection, id: Uuid) -&gt; Result&lt;bool,
             <section>
                 <section>
                     <h2>sqlx</h2>
-                    <p>SQL, checked against a real database</p>
+                    <p>SQL + some compile time checks</p>
                     <aside class="notes">
                         <ul>
                             <li>For people who hate ORMs: learn SQL, it's its own thing</li>
@@ -432,48 +641,50 @@ pub async fn delete(db: &amp;DatabaseConnection, id: Uuid) -&gt; Result&lt;bool,
                 </section>
                 <section>
                     <h3>Create and retrieve</h3>
-<pre><code class="language-rust" data-trim data-source="crates/bench-common/src/postgis.rs">
-pub const INSERT_SCHOOL: &amp;str = "INSERT INTO school (id, name, sector, school_type, location, created_at, updated_at) \
-     VALUES ($1, $2, $3, $4, ST_SetSRID(ST_MakePoint($5, $6), 4326), $7, $7)";
-</code></pre>
-<p class="source">crates/bench-common/src/postgis.rs</p>
                     <div class="cols">
                         <div>
-<pre><code class="language-rust" data-trim data-source="crates/sqlx-demo/src/crud.rs">
-pub async fn create(pool: &amp;PgPool, input: &amp;SchoolInput) -&gt; sqlx::Result&lt;SchoolRecord&gt; {
-    let record = SchoolRecord::new(input);
-    sqlx::query(postgis::INSERT_SCHOOL)
-        .bind(record.id)
-        .bind(&amp;record.name)
-        .bind(&amp;record.sector)
-        .bind(&amp;record.school_type)
-        .bind(record.lon)
-        .bind(record.lat)
-        .bind(record.created_at)
-        .execute(pool)
+<pre><code class="language-rust" data-trim data-source="crates/sqlx-demo/src/postgres.rs">
+pub async fn create(db: impl PgExecutor&lt;'_&gt;, input: &amp;SchoolInput) -&gt; sqlx::Result&lt;School&gt; {
+    let new = School::new(input);
+    sqlx::query("INSERT INTO school (id, name, lon, lat, created_at) VALUES ($1, $2, $3, $4, $5)")
+        .bind(new.id)
+        .bind(&amp;new.name)
+        .bind(new.lon)
+        .bind(new.lat)
+        .bind(new.created_at)
+        .execute(db)
         .await?;
-    Ok(record)
+    Ok(new)
 }
 </code></pre>
-<p class="source">crates/sqlx-demo/src/crud.rs</p>
+<p class="source">crates/sqlx-demo/src/postgres.rs</p>
                         </div>
                         <div>
-<pre><code class="language-rust" data-trim data-source="crates/sqlx-demo/src/crud.rs">
-pub async fn get(pool: &amp;PgPool, id: Uuid) -&gt; sqlx::Result&lt;Option&lt;SchoolRecord&gt;&gt; {
-    let row: Option&lt;SchoolRow&gt; = sqlx::query_as(postgis::SELECT_SCHOOL_RECORD)
-        .bind(id)
-        .fetch_optional(pool)
-        .await?;
-    Ok(row.map(SchoolRecord::from))
+<pre><code class="language-rust" data-trim data-source="crates/sqlx-demo/src/postgres.rs">
+pub async fn retrieve(db: impl PgExecutor&lt;'_&gt;, id: Uuid) -&gt; sqlx::Result&lt;Option&lt;School&gt;&gt; {
+    let row: Option&lt;SchoolRow&gt; =
+        sqlx::query_as("SELECT id, name, lon, lat, created_at FROM school WHERE id = $1")
+            .bind(id)
+            .fetch_optional(db)
+            .await?;
+    Ok(row.map(school))
 }
 </code></pre>
-<p class="source">crates/sqlx-demo/src/crud.rs</p>
+<p class="source">crates/sqlx-demo/src/postgres.rs</p>
+<pre><code class="language-rust" data-trim data-source="crates/sqlx-demo/src/lib.rs">
+type SchoolRow = (Uuid, String, f64, f64, DateTime&lt;Utc&gt;);
+</code></pre>
+<p class="source">crates/sqlx-demo/src/lib.rs</p>
                         </div>
                     </div>
                     <aside class="notes">
                         <ul>
                             <li>Less boilerplate: SQL plus binds</li>
                             <li>But you write the SQL yourself</li>
+                            <li><code>impl PgExecutor</code>: a pool, a connection or a transaction</li>
+                            <li><code>retrieve</code> reads each row into a plain tuple, <code>SchoolRow = (Uuid, String, f64, f64, DateTime&lt;Utc&gt;)</code></li>
+                            <li>The tuple follows the order of the <code>SELECT</code> columns, then <code>school()</code> turns it into a <code>School</code></li>
+                            <li>No struct or derive needed, but get the column order wrong and the types won't line up</li>
                         </ul>
                     </aside>
                 </section>
@@ -481,71 +692,175 @@ pub async fn get(pool: &amp;PgPool, id: Uuid) -&gt; sqlx::Result&lt;Option&lt;Sc
                     <h3>Update and delete</h3>
                     <div class="cols">
                         <div>
-<pre><code class="language-rust" data-trim data-source="crates/sqlx-demo/src/crud.rs">
+<pre><code class="language-rust" data-trim data-source="crates/sqlx-demo/src/postgres.rs">
 pub async fn update(
-    pool: &amp;PgPool,
+    db: impl PgExecutor&lt;'_&gt;,
     id: Uuid,
     input: &amp;SchoolInput,
-) -&gt; sqlx::Result&lt;Option&lt;SchoolRecord&gt;&gt; {
-    let updated = sqlx::query(postgis::UPDATE_SCHOOL)
-        .bind(id)
-        .bind(&amp;input.name)
-        .bind(&amp;input.sector)
-        .bind(&amp;input.school_type)
-        .bind(input.lon)
-        .bind(input.lat)
-        .bind(Utc::now())
-        .execute(pool)
-        .await?;
-    if updated.rows_affected() == 0 {
-        return Ok(None);
-    }
-    get(pool, id).await
+) -&gt; sqlx::Result&lt;Option&lt;School&gt;&gt; {
+    let row: Option&lt;SchoolRow&gt; = sqlx::query_as(
+        "UPDATE school SET name = $2, lon = $3, lat = $4 WHERE id = $1 \
+         RETURNING id, name, lon, lat, created_at",
+    )
+    .bind(id)
+    .bind(&amp;input.name)
+    .bind(input.lon)
+    .bind(input.lat)
+    .fetch_optional(db)
+    .await?;
+    Ok(row.map(school))
 }
 </code></pre>
-<p class="source">crates/sqlx-demo/src/crud.rs</p>
+<p class="source">crates/sqlx-demo/src/postgres.rs</p>
                         </div>
                         <div>
-<pre><code class="language-rust" data-trim data-source="crates/sqlx-demo/src/crud.rs">
-pub async fn delete(pool: &amp;PgPool, id: Uuid) -&gt; sqlx::Result&lt;bool&gt; {
-    let deleted = sqlx::query(postgis::DELETE_SCHOOL)
+<pre><code class="language-rust" data-trim data-source="crates/sqlx-demo/src/postgres.rs">
+pub async fn delete(db: impl PgExecutor&lt;'_&gt;, id: Uuid) -&gt; sqlx::Result&lt;bool&gt; {
+    let deleted = sqlx::query("DELETE FROM school WHERE id = $1")
         .bind(id)
-        .execute(pool)
+        .execute(db)
         .await?;
     Ok(deleted.rows_affected() &gt; 0)
 }
 </code></pre>
-<p class="source">crates/sqlx-demo/src/crud.rs</p>
+<p class="source">crates/sqlx-demo/src/postgres.rs</p>
                         </div>
                     </div>
                     <aside class="notes">
                         <ul>
                             <li>Whole CRUD in a handful of lines</li>
-                            <li>What we lose: how do migrations run? Must we learn SQL?</li>
+                            <li>We write every function twice, once for Postgres and once for SQLite</li>
+                            <li>The SQL text differs: Postgres says <code>$1</code>, SQLite says <code>?1</code>, and sqlx won't translate</li>
+                            <li>And sqlx won't let a Postgres function run on a SQLite connection, or the other way round</li>
                             <li>Any issues with selection? How do we do a cursor?</li>
                         </ul>
                     </aside>
                 </section>
                 <section>
-                    <h3>Keyset pagination</h3>
-                    <p><em>To be filled...</em></p>
+                    <h3>sqlx migrations</h3>
+                    <div class="cols">
+                        <div>
+<pre><code class="language-sql" data-trim data-source="crates/sqlx-demo/migrations/postgres/0001_create_school.sql">
+CREATE TABLE school (
+    id UUID PRIMARY KEY,
+    name TEXT NOT NULL,
+    lon DOUBLE PRECISION NOT NULL,
+    lat DOUBLE PRECISION NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL
+);
+</code></pre>
+<p class="source">crates/sqlx-demo/migrations/postgres/0001_create_school.sql</p>
+                        </div>
+                        <div>
+<pre><code class="language-rust" data-trim data-source="crates/sqlx-demo/src/postgres.rs">
+static MIGRATIONS: Migrator = sqlx::migrate!("./migrations/postgres");
+</code></pre>
+<p class="source">crates/sqlx-demo/src/postgres.rs</p>
+<pre><code class="language-rust" data-trim data-source="crates/sqlx-demo/src/postgres.rs">
+pub async fn connect(url: &amp;str) -&gt; anyhow::Result&lt;PgPool&gt; {
+    let pool = PgPool::connect(url).await?;
+    MIGRATIONS.run(&amp;pool).await?;
+    Ok(pool)
+}
+</code></pre>
+<p class="source">crates/sqlx-demo/src/postgres.rs</p>
+                        </div>
+                    </div>
                     <aside class="notes">
                         <ul>
-                            <li>14 million rows, filtered, unknown result size</li>
-                            <li>Don't let a 30 second query get killed by the load balancer</li>
-                            <li>Front end steps through pages, e.g. 1,000 rows, maybe in geo bounds</li>
-                            <li>Each page must be efficient and use an index built for it</li>
+                            <li>Plain SQL files per backend</li>
+                            <li><code>migrate!</code> embeds them; <code>sqlx-cli</code> can run them too</li>
                         </ul>
                     </aside>
                 </section>
                 <section>
-                    <h3>Keyset pagination in three libraries</h3>
-                    <p><em>To be filled...</em></p>
+                    <h3>Keyset pagination</h3>
+                    <div class="cols">
+                        <div>
+                            <p style="font-size: 0.45em; text-align: left; margin: 0 0 0.3em;">Offset</p>
+<pre><code class="language-sql" data-trim>
+SELECT id, name FROM school
+ORDER BY id
+LIMIT 1000 OFFSET 500000;
+</code></pre>
+                        </div>
+                        <div>
+                            <p style="font-size: 0.45em; text-align: left; margin: 0 0 0.3em;">Keyset</p>
+<pre><code class="language-sql" data-trim>
+SELECT id, name FROM school
+WHERE id &gt; $last_seen
+ORDER BY id
+LIMIT 1000;
+</code></pre>
+                        </div>
+                    </div>
+                    <aside class="notes">
+                        <ul>
+                            <li>Picture a map of every property in the country: 14 million rows</li>
+                            <li>Someone drags the map over Melbourne and filters to 3-bedroom houses</li>
+                            <li>Is that 50 results or 500,000? We can't know before we run it</li>
+                            <li>Ask for everything at once and it might take 30 seconds; the load balancer kills it first</li>
+                            <li>So the front end asks for a page at a time, 1,000 rows, inside the map bounds</li>
+                            <li>Each page has to come back fast, using an index built for exactly that query</li>
+                            <li>Offset makes the database count past every earlier row: page 500 is slow</li>
+                            <li>Keyset starts right after the last row we saw, so every page costs the same</li>
+                            <li>Offset pages also shift: insert or delete a row while someone is paging and page 3 now starts at a different row</li>
+                            <li>So they skip rows or see the same row twice</li>
+                            <li>Keyset remembers the last row, not a position, so the pages don't move</li>
+                        </ul>
+                    </aside>
+                </section>
+                <section>
+                    <h3>Keyset pagination w/ our libraries</h3>
+                    <div class="cols">
+                        <div>
+<pre><code class="language-rust" data-trim data-source="crates/diesel-demo/src/crud.rs">
+pub fn page(conn: &amp;mut AnyConnection, after: Uuid, size: i64) -&gt; QueryResult&lt;Vec&lt;School&gt;&gt; {
+    let rows = school::table
+        .filter(school::id.gt(after.as_bytes().as_slice()))
+        .order(school::id)
+        .limit(size)
+        .select(SchoolRow::as_select())
+        .load(conn)?;
+    Ok(rows.into_iter().map(School::from).collect())
+}
+</code></pre>
+<p class="source">crates/diesel-demo/src/crud.rs</p>
+                        </div>
+                        <div>
+<pre><code class="language-rust" data-trim data-source="crates/seaorm-demo/src/crud.rs">
+pub async fn page(db: &amp;impl ConnectionTrait, after: Uuid, size: u64) -&gt; Result&lt;Vec&lt;School&gt;, DbErr&gt; {
+    let models = school::Entity::find()
+        .filter(school::Column::Id.gt(after))
+        .order_by_asc(school::Column::Id)
+        .limit(size)
+        .all(db)
+        .await?;
+    Ok(models.into_iter().map(School::from).collect())
+}
+</code></pre>
+<p class="source">crates/seaorm-demo/src/crud.rs</p>
+                        </div>
+                    </div>
+<pre><code class="language-rust" data-trim data-source="crates/sqlx-demo/src/postgres.rs">
+pub async fn page(db: impl PgExecutor&lt;'_&gt;, after: Uuid, size: i64) -&gt; sqlx::Result&lt;Vec&lt;School&gt;&gt; {
+    let rows: Vec&lt;SchoolRow&gt; = sqlx::query_as(
+        "SELECT id, name, lon, lat, created_at FROM school WHERE id &gt; $1 ORDER BY id LIMIT $2",
+    )
+    .bind(after)
+    .bind(size)
+    .fetch_all(db)
+    .await?;
+    Ok(rows.into_iter().map(school).collect())
+}
+</code></pre>
+<p class="source">crates/sqlx-demo/src/postgres.rs</p>
                     <aside class="notes">
                         <ul>
                             <li>Page numbers don't give the exact query back</li>
                             <li>Old way: a server-side cursor per client, like an iterator</li>
                             <li>Keyset: same query, pass the last key seen as the start of the next page</li>
+                            <li>First page: pass <code>Uuid::nil()</code>, which is lower than every id</li>
                             <li>Needs a time-ordered key such as UUIDv7</li>
                             <li>A row inserted mid-paging sorts to the end (page 5), not into pages already seen</li>
                         </ul>
@@ -556,7 +871,7 @@ pub async fn delete(pool: &amp;PgPool, id: Uuid) -&gt; sqlx::Result&lt;bool&gt; 
             <section>
                 <section>
                     <h2>rusqlite and Turso</h2>
-                    <p>SQL libraries, not ORMs</p>
+                    <p>SQL libraries</p>
                     <aside class="notes">
                         <ul>
                             <li>The lower level: plain SQL libraries</li>
@@ -569,83 +884,105 @@ pub async fn delete(pool: &amp;PgPool, id: Uuid) -&gt; sqlx::Result&lt;bool&gt; 
                     <h3>rusqlite</h3>
                     <div class="cols">
                         <div>
-<pre><code class="language-rust" data-trim data-source="crates/rusqlite-demo/src/crud.rs">
-pub fn create(conn: &amp;Connection, input: &amp;SchoolInput) -&gt; rusqlite::Result&lt;SchoolRecord&gt; {
-    let r = SchoolRecord::new(input);
-    conn.execute(
-        sqlite_geo::INSERT_SCHOOL,
-        params![
-            r.id,
-            r.name,
-            r.sector,
-            r.school_type,
-            r.lon,
-            r.lat,
-            r.created_at,
-            r.updated_at
-        ],
-    )?;
-    Ok(r)
+<pre><code class="language-rust" data-trim data-source="crates/rusqlite-demo/src/lib.rs">
+pub fn create(conn: &amp;Connection, input: &amp;SchoolInput) -&gt; rusqlite::Result&lt;School&gt; {
+    let new = School::new(input);
+    conn.prepare_cached(
+        "INSERT INTO school (id, name, lon, lat, created_at) VALUES (?1, ?2, ?3, ?4, ?5)",
+    )?
+    .execute(params![new.id, new.name, new.lon, new.lat, new.created_at])?;
+    Ok(new)
 }
 </code></pre>
-<p class="source">crates/rusqlite-demo/src/crud.rs</p>
+<p class="source">crates/rusqlite-demo/src/lib.rs</p>
                         </div>
                         <div>
-<pre><code class="language-rust" data-trim data-source="crates/rusqlite-demo/src/crud.rs">
-fn record(r: &amp;Row&lt;'_&gt;) -&gt; rusqlite::Result&lt;SchoolRecord&gt; {
-    Ok(SchoolRecord {
+<pre><code class="language-rust" data-trim data-source="crates/rusqlite-demo/src/lib.rs">
+fn school(r: &amp;Row&lt;'_&gt;) -&gt; rusqlite::Result&lt;School&gt; {
+    Ok(School {
         id: r.get(0)?,
         name: r.get(1)?,
-        sector: r.get(2)?,
-        school_type: r.get(3)?,
-        lon: r.get(4)?,
-        lat: r.get(5)?,
-        created_at: r.get(6)?,
-        updated_at: r.get(7)?,
+        lon: r.get(2)?,
+        lat: r.get(3)?,
+        created_at: r.get(4)?,
     })
 }
 </code></pre>
-<p class="source">crates/rusqlite-demo/src/crud.rs</p>
+<p class="source">crates/rusqlite-demo/src/lib.rs</p>
                         </div>
                     </div>
                     <aside class="notes">
                         <ul>
                             <li>Synchronous, wraps the SQLite C library</li>
+                            <li><code>prepare_cached</code>: one prepare per connection</li>
                             <li><code>uuid</code> and <code>chrono</code> features map the types for us</li>
                         </ul>
                     </aside>
                 </section>
                 <section>
-                    <h3>Turso</h3>
-<pre><code class="language-rust" data-trim data-source="crates/turso-demo/src/crud.rs">
-#[must_use]
-pub fn id_blob(id: Uuid) -&gt; Vec&lt;u8&gt; {
-    id.as_bytes().to_vec()
+                    <h3>Migrations</h3>
+<pre><code class="language-rust" data-trim data-source="crates/rusqlite-demo/src/lib.rs">
+const MIGRATIONS: &amp;[&amp;str] = &amp;[include_str!("../migrations/0001_create_school.sql")];
+
+pub fn open(path: &amp;Path) -&gt; rusqlite::Result&lt;Connection&gt; {
+    let conn = Connection::open(path)?;
+    let applied: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
+    for (version, sql) in (1_i64..).zip(MIGRATIONS) {
+        if version &gt; applied {
+            conn.execute_batch(sql)?;
+            conn.pragma_update(None, "user_version", version)?;
+        }
+    }
+    Ok(conn)
 }
 </code></pre>
-<p class="source">crates/turso-demo/src/crud.rs</p>
-<pre><code class="language-rust" data-trim data-source="crates/turso-demo/src/crud.rs">
-pub async fn create(conn: &amp;Connection, input: &amp;SchoolInput) -&gt; Result&lt;SchoolRecord&gt; {
-    let r = SchoolRecord::new(input);
+<p class="source">crates/rusqlite-demo/src/lib.rs</p>
+                    <aside class="notes">
+                        <ul>
+                            <li><code>rusqlite_migration</code> doesn't support rusqlite 0.43</li>
+                            <li>So: a list of SQL files and <code>PRAGMA user_version</code></li>
+                            <li>Turso: the same, async; it has no migration tool</li>
+                        </ul>
+                    </aside>
+                </section>
+                <section>
+                    <h3>Turso</h3>
+                    <div class="cols">
+                        <div>
+<pre><code class="language-rust" data-trim data-source="crates/turso-demo/src/lib.rs">
+pub async fn create(conn: &amp;Connection, input: &amp;SchoolInput) -&gt; Result&lt;School&gt; {
+    let new = School::new(input);
     conn.execute(
-        sqlite_geo::INSERT_SCHOOL,
+        "INSERT INTO school (id, name, lon, lat, created_at) VALUES (?1, ?2, ?3, ?4, ?5)",
         (
-            id_blob(r.id),
-            r.name.as_str(),
-            r.sector.as_str(),
-            r.school_type.as_str(),
-            r.lon,
-            r.lat,
-            r.created_at.to_rfc3339(),
-            r.updated_at.to_rfc3339(),
+            new.id.as_bytes().to_vec(),
+            new.name.as_str(),
+            new.lon,
+            new.lat,
+            new.created_at.to_rfc3339(),
         ),
     )
-    .await
-    .context("inserting a school")?;
-    Ok(r)
+    .await?;
+    Ok(new)
 }
 </code></pre>
-<p class="source">crates/turso-demo/src/crud.rs</p>
+<p class="source">crates/turso-demo/src/lib.rs</p>
+                        </div>
+                        <div>
+<pre><code class="language-rust" data-trim data-source="crates/turso-demo/src/lib.rs">
+fn school(row: &amp;Row) -&gt; Result&lt;School&gt; {
+    Ok(School {
+        id: Uuid::from_slice(&amp;row.get::&lt;Vec&lt;u8&gt;&gt;(0)?)?,
+        name: row.get(1)?,
+        lon: row.get(2)?,
+        lat: row.get(3)?,
+        created_at: DateTime::parse_from_rfc3339(&amp;row.get::&lt;String&gt;(4)?)?.to_utc(),
+    })
+}
+</code></pre>
+<p class="source">crates/turso-demo/src/lib.rs</p>
+                        </div>
+                    </div>
                     <aside class="notes">
                         <ul>
                             <li>Async, its own engine</li>
@@ -658,11 +995,12 @@ pub async fn create(conn: &amp;Connection, input: &amp;SchoolInput) -&gt; Result
             <section>
                 <section>
                     <h2>Geospatial</h2>
-                    <p>Suburbs and schools from property-reporting, in every library</p>
+                    <p>Suburbs and schools from property-reporting</p>
                     <aside class="notes">
                         <ul>
                             <li>SQLite: SpatiaLite extension; Postgres: PostGIS</li>
-                            <li>Types mapped for both in a <code>geospatial.rs</code> module</li>
+                            <li>Diesel has a companion crate, <code>postgis_diesel</code>, that maps PostGIS types like <code>Point</code> and <code>Polygon</code> to Rust types</li>
+                            <li>The examples live in each crate's <code>src/bin/geo.rs</code></li>
                             <li>How much more complex things get with this kind of data</li>
                         </ul>
                     </aside>
@@ -672,59 +1010,220 @@ pub async fn create(conn: &amp;Connection, input: &amp;SchoolInput) -&gt; Result
                     <div class="cols">
                         <img src="suburbs.svg" alt="Five suburb outlines with a point inside Prahran" style="height: 520px; margin: 0;" />
                         <div>
-<pre><code class="language-rust" data-trim data-source="crates/bench-common/src/postgis.rs">
-pub const SUBURB_AT: &amp;str = "SELECT name FROM suburb \
-     WHERE ST_Contains(outline, ST_SetSRID(ST_MakePoint($1, $2), 4326)) ORDER BY name";
+<pre><code class="language-rust" data-trim data-source="crates/sqlx-demo/src/bin/geo.rs">
+let names: Vec&lt;String&gt; = sqlx::query_scalar(
+    "SELECT name FROM suburb WHERE ST_Contains(outline, ST_SetSRID(ST_MakePoint($1, $2), 4326))",
+)
+.bind(SEARCH_POINT.0)
+.bind(SEARCH_POINT.1)
+.fetch_all(&amp;pool)
+.await?;
 </code></pre>
-<p class="source">crates/bench-common/src/postgis.rs</p>
-<pre><code class="language-rust" data-trim data-source="crates/diesel-demo/src/geospatial.rs">
-let suburbs_at_search_point = suburb::table
-    .filter(st_contains(suburb::outline, search))
+<p class="source">crates/sqlx-demo/src/bin/geo.rs</p>
+<pre><code class="language-rust" data-trim data-source="crates/diesel-demo/src/bin/geo.rs">
+let names: Vec&lt;String&gt; = suburb::table
+    .filter(st_contains(suburb::outline, point(SEARCH_POINT)))
     .select(suburb::name)
-    .order(suburb::name)
-    .load(&amp;mut conn)
-    .context("finding the suburb at the search point")?;
+    .load(&amp;mut conn)?;
 </code></pre>
-<p class="source">crates/diesel-demo/src/geospatial.rs</p>
-                            <p><code>Prahran</code></p>
+<p class="source">crates/diesel-demo/src/bin/geo.rs</p>
+                            <p style="font-size: 0.45em; text-align: left;">Both return <code>["Prahran"]</code></p>
                         </div>
                     </div>
                     <aside class="notes">
                         <ul>
                             <li>Five real suburb outlines from property-reporting</li>
                             <li>Which outline holds the point? Prahran</li>
-                            <li>Same query as SQL and through Diesel</li>
-                            <li>GiST index on <code>outline</code> keeps it fast</li>
+                            <li>Same query in sqlx and through Diesel's <code>postgis_diesel</code></li>
+                            <li>SQLite would need SpatiaLite: loading it is <code>unsafe</code> in rusqlite, Turso can't</li>
                         </ul>
                     </aside>
                 </section>
                 <section>
-                    <h3>SQLite without SpatiaLite</h3>
-<pre><code class="language-rust" data-trim data-source="crates/rusqlite-demo/src/geospatial.rs">
-fn suburbs_at(conn: &amp;Connection, (lon, lat): (f64, f64)) -&gt; Result&lt;Vec&lt;String&gt;&gt; {
-    let candidates = conn
-        .prepare(sqlite_geo::SUBURBS_AROUND)
-        .context("preparing the suburb query")?
-        .query_map(params![lon, lat], |r| {
-            Ok((r.get::&lt;_, String&gt;(0)?, r.get::&lt;_, String&gt;(1)?))
-        })
-        .context("finding suburbs around the point")?
-        .collect::&lt;rusqlite::Result&lt;Vec&lt;_&gt;&gt;&gt;()
-        .context("reading suburbs around the point")?;
-    let mut names = Vec::new();
-    for (name, outline) in candidates {
-        if outline_contains(&amp;outline, lon, lat)? {
-            names.push(name);
-        }
-    }
-    Ok(names)
-}
-</code></pre>
-<p class="source">crates/rusqlite-demo/src/geospatial.rs</p>
+                    <h3>PostGIS types in Rust</h3>
+                    <table style="font-size: 0.45em;">
+                        <thead><tr><th>PostGIS</th><th>Diesel (<code>postgis_diesel</code>)</th><th>sqlx / SeaORM</th></tr></thead>
+                        <tbody>
+                            <tr><td><code>geometry(Point, 4326)</code></td><td><code>Point</code></td><td>bind lon and lat, <code>ST_MakePoint($1, $2)</code></td></tr>
+                            <tr><td><code>geometry(LineString, 4326)</code></td><td><code>LineString&lt;Point&gt;</code></td><td>bind WKT text, <code>ST_GeomFromText($1, 4326)</code></td></tr>
+                            <tr><td><code>geometry(Polygon, 4326)</code></td><td><code>Polygon&lt;Point&gt;</code></td><td>bind WKT text, <code>ST_GeomFromText($1, 4326)</code></td></tr>
+                            <tr><td><code>geometry(MultiPolygon, 4326)</code></td><td><code>MultiPolygon&lt;Point&gt;</code></td><td>bind WKT text, <code>ST_GeomFromText($1, 4326)</code></td></tr>
+                            <tr><td><code>geography</code></td><td><code>sql_types::Geography</code>, same Rust types</td><td>cast in SQL, <code>location::geography</code></td></tr>
+                            <tr><td>Reading back</td><td>the same types, e.g. <code>point.x</code>, <code>point.y</code></td><td><code>ST_X</code>, <code>ST_Y</code>, <code>ST_AsText</code>, <code>ST_AsGeoJSON</code></td></tr>
+                            <tr><td>Spatial functions</td><td><code>st_contains</code>, <code>st_d_within</code> in the query DSL</td><td>written in the SQL string</td></tr>
+                        </tbody>
+                    </table>
                     <aside class="notes">
                         <ul>
-                            <li>Loading SpatiaLite is <code>unsafe</code> in rusqlite; Turso can't load it</li>
-                            <li>Bounding-box query in SQL, exact test in Rust with <code>geo</code></li>
+                            <li>Diesel is the only one with real geometry types, via the <code>postgis_diesel</code> crate</li>
+                            <li>The column type and the Rust type match, and spatial functions are part of the typed query</li>
+                            <li>sqlx and SeaORM have no geometry types, so geometry stays on the SQL side</li>
+                            <li>Send it in as numbers or WKT text, build it with <code>ST_*</code> functions, read it back as numbers or text</li>
+                            <li>The <code>geozero</code> crate can add WKB encoding for sqlx, if you want real types there</li>
+                            <li>rusqlite and Turso: no PostGIS. SQLite needs the SpatiaLite extension, and loading it in rusqlite is <code>unsafe</code></li>
+                            <li>SRID 4326 is plain longitude and latitude, what GPS gives you</li>
+                            <li><code>geography</code> measures in metres on the earth's surface; <code>geometry</code> is flat</li>
+                        </ul>
+                    </aside>
+                </section>
+            </section>
+
+            <section>
+                <section>
+                    <h2>Connection pooling</h2>
+                    <p>Sharing connections across requests</p>
+                    <aside class="notes">
+                        <ul>
+                            <li>A realistic CRUD app shares connections across threads and tasks</li>
+                            <li>So benchmarks need pooling: how each library handles it</li>
+                        </ul>
+                    </aside>
+                </section>
+                <section>
+                    <h3>Per library</h3>
+<pre><code class="language-rust" data-trim data-source="crates/school-api/src/database.rs">
+pub async fn connect() -&gt; Result&lt;Self&gt; {
+    let diesel_url = postgres_url("talk_diesel");
+    diesel_demo::crud::connect(&amp;diesel_url)?;
+    let turso_path = env::temp_dir().join("api-turso.db");
+    Ok(Self {
+        diesel: Pool::new(ConnectionManager::new(&amp;diesel_url))?,
+        diesel_async: deadpool::Pool::builder(AsyncDieselConnectionManager::new(&amp;diesel_url))
+            .build()?,
+        sqlx: sqlx_demo::postgres::connect(&amp;postgres_url("talk_sqlx")).await?,
+        seaorm: seaorm_demo::crud::connect(&amp;postgres_url("talk_seaorm")).await?,
+        rusqlite: Arc::new(Mutex::new(rusqlite_demo::open(
+            &amp;env::temp_dir().join("api-rusqlite.db"),
+        )?)),
+        turso: turso_demo::open(turso_path.to_str().context("path is not UTF-8")?).await?,
+    })
+}
+</code></pre>
+<p class="source">crates/school-api/src/database.rs</p>
+                    <aside class="notes">
+                        <ul>
+                            <li>Diesel: <code>r2d2</code> for sync; diesel-async with <code>deadpool</code> or <code>bb8</code></li>
+                            <li>SeaORM: a sqlx pool underneath</li>
+                            <li>sqlx: built-in <code>PgPool</code>; each SQLite connection keeps its worker thread</li>
+                            <li>rusqlite: no pool crate supports 0.43, so one connection behind a lock</li>
+                            <li>Turso: <code>connect()</code> per request</li>
+                        </ul>
+                    </aside>
+                </section>
+                <section>
+                    <h3>Blocking work</h3>
+                    <p style="font-size: 0.55em;">Wrapped sync libs in <code>spawn_blocking</code></p>
+                    <div class="cols">
+                        <div>
+                            <p style="font-size: 0.45em; text-align: left; margin: 0 0 0.3em;">The helper</p>
+<pre><code class="language-rust" data-trim data-source="crates/school-api/src/database.rs">
+async fn blocking&lt;T: Send + 'static&gt;(
+    work: impl FnOnce() -&gt; Result&lt;T&gt; + Send + 'static,
+) -&gt; Result&lt;T&gt; {
+    tokio::task::spawn_blocking(work).await?
+}
+</code></pre>
+<p class="source">crates/school-api/src/database.rs</p>
+                            <p style="font-size: 0.45em; text-align: left; margin: 0.6em 0 0.3em;">sqlx: many rows in one statement, so one trip. 55.8 µs/row down to 2.0</p>
+<pre><code class="language-rust" data-trim data-source="crates/sqlx-demo/src/sqlite.rs">
+pub async fn create_many(
+    db: impl SqliteExecutor&lt;'_&gt;,
+    inputs: &amp;[SchoolInput],
+) -&gt; sqlx::Result&lt;Vec&lt;School&gt;&gt; {
+    let new: Vec&lt;School&gt; = inputs.iter().map(School::new).collect();
+    let mut insert =
+        QueryBuilder::&lt;Sqlite&gt;::new("INSERT INTO school (id, name, lon, lat, created_at) ");
+    insert.push_values(&amp;new, |mut row, s| {
+        row.push_bind(s.id)
+            .push_bind(&amp;s.name)
+            .push_bind(s.lon)
+            .push_bind(s.lat)
+            .push_bind(s.created_at);
+    });
+    insert.build().execute(db).await?;
+    Ok(new)
+}
+</code></pre>
+<p class="source">crates/sqlx-demo/src/sqlite.rs</p>
+                        </div>
+                        <div>
+                            <p style="font-size: 0.45em; text-align: left; margin: 0 0 0.3em;">Diesel and rusqlite are wrapped in <code>blocking</code>, while the async libraries are called directly</p>
+<pre><code class="language-rust" data-trim data-source="crates/school-api/src/database.rs">
+Library::Diesel =&gt; {
+    let pool = self.diesel.clone();
+    blocking(move || Ok(diesel_demo::crud::create(&amp;mut *pool.get()?, &amp;input)?)).await?
+}
+Library::DieselAsync =&gt; {
+    let mut conn = self.diesel_async.get().await?;
+    diesel_demo::crud_async::create(&amp;mut conn, &amp;input).await?
+}
+Library::Sqlx =&gt; sqlx_demo::postgres::create(&amp;self.sqlx, &amp;input).await?,
+Library::Seaorm =&gt; seaorm_demo::crud::create(&amp;self.seaorm, &amp;input).await?,
+Library::Rusqlite =&gt; {
+    let conn = Arc::clone(&amp;self.rusqlite);
+    blocking(move || Ok(rusqlite_demo::create(&amp;*lock(&amp;conn)?, &amp;input)?)).await?
+}
+</code></pre>
+<p class="source">crates/school-api/src/database.rs</p>
+                        </div>
+                    </div>
+                    <aside class="notes">
+                        <ul>
+                            <li>A Tokio worker runs thousands of tasks; one blocking call freezes all of them</li>
+                            <li><code>spawn_blocking</code> runs the closure on Tokio's separate pool of blocking threads and awaits the result</li>
+                            <li>Diesel and rusqlite are sync, so they go through <code>blocking</code></li>
+                            <li>diesel-async, sqlx, SeaORM and Turso are async, so they're awaited directly</li>
+                            <li>The closure must own what it uses (<code>'static</code>), so we clone the pool or the <code>Arc</code> first and <code>move</code> it in</li>
+                            <li>Every trip to a blocking thread costs something, so do as much as you can on each trip</li>
+                            <li>sqlx makes one trip per statement, so batch rows into one statement with <code>QueryBuilder::push_values</code></li>
+                        </ul>
+                    </aside>
+                </section>
+                <section>
+                    <h3>One writer</h3>
+                    <div class="cols">
+                        <div>
+                            <h4 style="font-size: 0.7em;">SQLite (rusqlite)</h4>
+                            <ul style="font-size: 0.5em;">
+                                <li>One write at a time</li>
+                                <li>Reads run alongside writes in WAL (write-ahead log) mode</li>
+                            </ul>
+<pre><code class="language-rust" data-trim data-source="crates/school-api/src/database.rs">
+rusqlite: Arc&lt;Mutex&lt;rusqlite::Connection&gt;&gt;,
+</code></pre>
+<pre><code class="language-rust" data-trim data-source="crates/school-api/src/database.rs">
+Library::Rusqlite =&gt; {
+    let conn = Arc::clone(&amp;self.rusqlite);
+    blocking(move || Ok(rusqlite_demo::create(&amp;*lock(&amp;conn)?, &amp;input)?)).await?
+}
+</code></pre>
+<p class="source">crates/school-api/src/database.rs</p>
+                        </div>
+                        <div>
+                            <h4 style="font-size: 0.7em;">Turso</h4>
+                            <ul style="font-size: 0.5em;">
+                                <li>MVCC mode allows multiple writers</li>
+                                <li>Async first</li>
+                                <li>Turso opens a connection per request</li>
+                            </ul>
+<pre><code class="language-rust" data-trim data-source="crates/school-api/src/database.rs">
+turso: turso::Database,
+</code></pre>
+<pre><code class="language-rust" data-trim data-source="crates/school-api/src/database.rs">
+Library::Turso =&gt; turso_demo::create(&amp;self.turso.connect()?, &amp;input).await?,
+</code></pre>
+<p class="source">crates/school-api/src/database.rs</p>
+                        </div>
+                    </div>
+                    <aside class="notes">
+                        <ul>
+                            <li>Postgres locks rows, so a pool really does write in parallel</li>
+                            <li>SQLite has a single write lock for the whole database file</li>
+                            <li>WAL mode lets readers carry on during a write, but there is still only one writer</li>
+                            <li>So a pool for SQLite is only really useful for reads</li>
+                            <li>rusqlite: one connection behind a <code>Mutex</code>, the lock just makes the queue explicit</li>
+                            <li>Turso: <code>connect()</code> per request, and its opt-in MVCC mode allows concurrent writes</li>
+                            <li>So that's something Turso has going for it</li>
                         </ul>
                     </aside>
                 </section>
@@ -733,17 +1232,61 @@ fn suburbs_at(conn: &amp;Connection, (lon, lat): (f64, f64)) -&gt; Result&lt;Vec
             <section>
                 <section>
                     <h2>Benchmarks</h2>
-                    <p>3 million inserts, SQLite, one transaction</p>
+                    <ul style="font-size: 0.6em;">
+                        <li>1 million rows</li>
+                        <li>One <code>create()</code> call per row</li>
+                        <li>One transaction covering all inserts</li>
+                    </ul>
+                </section>
+                <section>
+                    <h3>My advanced testing methodology</h3>
+                    <div class="cols">
+                        <div>
+<pre><code class="language-rust" data-trim data-source="crates/sqlx-demo/src/main.rs">
+let mut tx = pool.begin().await?;
+for i in 0..rows {
+    sqlite::create(&amp;mut *tx, &amp;SchoolInput::numbered(i)).await?;
+}
+tx.commit().await?;
+</code></pre>
+<p class="source">crates/sqlx-demo/src/main.rs</p>
+                        </div>
+                        <div>
+<pre><code class="language-rust" data-trim data-source="crates/rusqlite-demo/src/main.rs">
+let tx = conn.transaction()?;
+for i in 0..rows {
+    rusqlite_demo::create(&amp;tx, &amp;SchoolInput::numbered(i))?;
+}
+tx.commit()?;
+</code></pre>
+<p class="source">crates/rusqlite-demo/src/main.rs</p>
+                        </div>
+                    </div>
+                    <aside class="notes">
+                        <ul>
+                            <li>Same work: <code>create()</code> per row, one transaction</li>
+                            <li>sqlx: every <code>.await</code> is a hop to the worker thread and back</li>
+                            <li>rusqlite: a direct call into C</li>
+                        </ul>
+                    </aside>
+                </section>
+                <section>
+                    <h3>Results</h3>
+                    <div class="cols">
+                        <div>
+                            <h4>SQLite</h4>
                     <table>
                         <thead><tr><th>Library</th><th>Time</th><th>µs/row</th></tr></thead>
                         <tbody>
-                            <tr><td>rusqlite</td><td>1.20 s</td><td>0.40</td></tr>
-                            <tr><td>turso</td><td>4.72 s</td><td>1.57</td></tr>
-                            <tr><td>diesel</td><td>10.05 s</td><td>3.35</td></tr>
-                            <tr><td>sqlx</td><td>150.24 s</td><td>50.08</td></tr>
-                            <tr><td>seaorm</td><td>167.84 s</td><td>55.95</td></tr>
+                            <tr><td>rusqlite</td><td>9.4 s</td><td>3.1</td></tr>
+                            <tr><td>diesel</td><td>27.7 s</td><td>9.2</td></tr>
+                            <tr><td>turso</td><td>51.9 s</td><td>17.3</td></tr>
+                            <tr><td>sqlx</td><td>169.6 s</td><td>56.5</td></tr>
+                            <tr><td>seaorm</td><td>206.6 s</td><td>68.9</td></tr>
                         </tbody>
                     </table>
+                        </div>
+                    </div>
                     <aside class="notes">
                         <ul>
                             <li>sqlx has issues with per-statement cost</li>
@@ -756,45 +1299,63 @@ fn suburbs_at(conn: &amp;Connection, (lon, lat): (f64, f64)) -&gt; Result&lt;Vec
                     </aside>
                 </section>
                 <section>
-                    <h3>The same loop</h3>
-                    <div class="cols">
-                        <div>
-<pre><code class="language-rust" data-trim data-source="crates/sqlx-demo/src/inserts.rs">
-for i in 0..rows {
-    let (name, value) = row(i);
-    sqlx::query(INSERT_SQL)
-        .bind(name)
-        .bind(value)
-        .execute(&amp;mut *tx)
-        .await
-        .context("inserting a row")?;
-}
-</code></pre>
-<p class="source">crates/sqlx-demo/src/inserts.rs</p>
-                        </div>
-                        <div>
-<pre><code class="language-rust" data-trim data-source="crates/rusqlite-demo/src/inserts.rs">
-let mut stmt = tx.prepare(INSERT_SQL).context("preparing the insert")?;
-for i in 0..rows {
-    let (name, value) = row(i);
-    stmt.execute(params![name, value])
-        .context("inserting a row")?;
-}
-</code></pre>
-<p class="source">crates/rusqlite-demo/src/inserts.rs</p>
-                        </div>
-                    </div>
-                    <aside class="notes">
-                        <ul>
-                            <li>Same work: one insert per row, one transaction</li>
-                            <li>sqlx: every <code>.await</code> is a hop to the worker thread and back</li>
-                            <li>rusqlite: a direct call into C</li>
-                        </ul>
-                    </aside>
-                </section>
-                <section>
                     <h3>How sqlx talks to SQLite vs rusqlite</h3>
-                    <p><em>Diagram to be filled...</em></p>
+                    <svg viewBox="0 0 1200 470" style="width: 100%; max-height: 560px;" xmlns="http://www.w3.org/2000/svg" font-family="Source Sans Pro, Helvetica, sans-serif">
+                        <defs>
+                            <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                                <path d="M0,0 L10,5 L0,10 z" fill="#ddd" />
+                            </marker>
+                            <marker id="hop" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                                <path d="M0,0 L10,5 L0,10 z" fill="#f5a623" />
+                            </marker>
+                        </defs>
+
+                        <text x="340" y="28" fill="#fff" font-size="26" font-weight="bold" text-anchor="middle">sqlx (async)</text>
+                        <text x="170" y="62" fill="#aaa" font-size="17" text-anchor="middle">Tokio worker thread</text>
+                        <text x="510" y="62" fill="#aaa" font-size="17" text-anchor="middle">SQLite worker thread</text>
+                        <line x1="170" y1="72" x2="170" y2="380" stroke="#555" stroke-dasharray="4 6" />
+                        <line x1="510" y1="72" x2="510" y2="380" stroke="#555" stroke-dasharray="4 6" />
+
+                        <rect x="50" y="85" width="240" height="50" rx="8" fill="#2b2b2b" stroke="#ccc" />
+                        <text x="170" y="116" fill="#eee" font-size="18" text-anchor="middle">task: execute(INSERT)</text>
+
+                        <path d="M290,110 L390,175" stroke="#f5a623" stroke-width="3" fill="none" marker-end="url(#hop)" />
+                        <text x="345" y="128" fill="#f5a623" font-size="17" text-anchor="middle">① channel</text>
+
+                        <rect x="390" y="160" width="240" height="60" rx="8" fill="#2b2b2b" stroke="#ccc" />
+                        <text x="510" y="186" fill="#eee" font-size="18" text-anchor="middle">sqlite3_step()</text>
+                        <text x="510" y="208" fill="#aaa" font-size="15" text-anchor="middle">blocking C call</text>
+
+                        <rect x="50" y="160" width="240" height="105" rx="8" fill="#191919" stroke="#777" stroke-dasharray="6 5" />
+                        <text x="170" y="205" fill="#aaa" font-size="17" text-anchor="middle">task asleep (.await)</text>
+                        <text x="170" y="228" fill="#888" font-size="15" text-anchor="middle">other tasks run here</text>
+
+                        <path d="M390,215 L290,295" stroke="#f5a623" stroke-width="3" fill="none" marker-end="url(#hop)" />
+                        <text x="345" y="280" fill="#f5a623" font-size="17" text-anchor="middle">② channel</text>
+
+                        <rect x="50" y="290" width="240" height="50" rx="8" fill="#2b2b2b" stroke="#ccc" />
+                        <text x="170" y="321" fill="#eee" font-size="18" text-anchor="middle">Tokio wakes the task</text>
+
+                        <line x1="700" y1="20" x2="700" y2="380" stroke="#444" />
+
+                        <text x="950" y="28" fill="#fff" font-size="26" font-weight="bold" text-anchor="middle">rusqlite (sync)</text>
+                        <text x="950" y="62" fill="#aaa" font-size="17" text-anchor="middle">calling thread</text>
+
+                        <rect x="830" y="85" width="240" height="50" rx="8" fill="#2b2b2b" stroke="#ccc" />
+                        <text x="950" y="116" fill="#eee" font-size="18" text-anchor="middle">execute(INSERT)</text>
+                        <line x1="950" y1="135" x2="950" y2="158" stroke="#ddd" stroke-width="2" marker-end="url(#arrow)" />
+
+                        <rect x="830" y="160" width="240" height="60" rx="8" fill="#2b2b2b" stroke="#ccc" />
+                        <text x="950" y="186" fill="#eee" font-size="18" text-anchor="middle">sqlite3_step()</text>
+                        <text x="950" y="208" fill="#aaa" font-size="15" text-anchor="middle">blocking C call</text>
+                        <line x1="950" y1="220" x2="950" y2="288" stroke="#ddd" stroke-width="2" marker-end="url(#arrow)" />
+
+                        <rect x="830" y="290" width="240" height="50" rx="8" fill="#2b2b2b" stroke="#ccc" />
+                        <text x="950" y="321" fill="#eee" font-size="18" text-anchor="middle">result, same thread</text>
+                        <text x="950" y="368" fill="#8bc34a" font-size="17" text-anchor="middle">no channel, no thread switch</text>
+
+                        <text x="600" y="440" fill="#f5a623" font-size="20" text-anchor="middle">sqlx pays ① + ② + a wake-up on every statement: 1 million times in the benchmark</text>
+                    </svg>
                     <aside class="notes">
                         <ul>
                             <li>sqlx: task sends statement down a channel, awaits; worker makes the blocking C call, sends result back</li>
@@ -808,7 +1369,14 @@ for i in 0..rows {
                 </section>
                 <section>
                     <h3>The trade-off</h3>
-                    <p><em>To be filled...</em></p>
+                    <table>
+                        <thead><tr><th></th><th>sqlx</th><th>rusqlite</th></tr></thead>
+                        <tbody>
+                            <tr><td>API</td><td>async, the same for Postgres, MySQL and SQLite</td><td>sync, SQLite only</td></tr>
+                            <tr><td>Blocking calls</td><td>hidden on a worker thread for you</td><td>yours to move off the runtime, e.g. <code>spawn_blocking</code></td></tr>
+                            <tr><td>Cost</td><td>a thread hop on every statement</td><td>one hop per batch</td></tr>
+                        </tbody>
+                    </table>
                     <aside class="notes">
                         <ul>
                             <li>sqlx: one async API and pool for Postgres, MySQL and SQLite</li>
@@ -822,109 +1390,8 @@ for i in 0..rows {
             </section>
 
             <section>
-                <section>
-                    <h2>Connection pooling</h2>
-                    <p><em>To be filled...</em></p>
-                    <aside class="notes">
-                        <ul>
-                            <li>A realistic CRUD app shares connections across threads and tasks</li>
-                            <li>So benchmarks need pooling: how each library handles it</li>
-                        </ul>
-                    </aside>
-                </section>
-                <section>
-                    <h3>Per library</h3>
-                    <div class="cols">
-                        <div>
-<pre><code class="language-rust" data-trim data-source="crates/diesel-demo/src/crud.rs">
-pub fn pool(url: &amp;str) -&gt; Result&lt;PgPool, PoolError&gt; {
-    Pool::builder().build(ConnectionManager::new(url))
-}
-</code></pre>
-<p class="source">crates/diesel-demo/src/crud.rs</p>
-<pre><code class="language-rust" data-trim data-source="crates/diesel-demo/src/crud_async.rs">
-pub fn pool(url: &amp;str) -&gt; Result&lt;AsyncPgPool, BuildError&gt; {
-    Pool::builder(AsyncDieselConnectionManager::&lt;AsyncPgConnection&gt;::new(url)).build()
-}
-</code></pre>
-<p class="source">crates/diesel-demo/src/crud_async.rs</p>
-                        </div>
-                        <div>
-<pre><code class="language-rust" data-trim data-source="crates/sqlx-demo/src/crud.rs">
-pub async fn pool(url: &amp;str, max_connections: u32) -&gt; sqlx::Result&lt;PgPool&gt; {
-    PgPoolOptions::new()
-        .max_connections(max_connections)
-        .connect(url)
-        .await
-}
-</code></pre>
-<p class="source">crates/sqlx-demo/src/crud.rs</p>
-<pre><code class="language-rust" data-trim data-source="crates/seaorm-demo/src/crud.rs">
-pub async fn connect(url: &amp;str, max_connections: u32) -&gt; Result&lt;DatabaseConnection, DbErr&gt; {
-    let mut options = ConnectOptions::new(url);
-    options.max_connections(max_connections);
-    Database::connect(options).await
-}
-</code></pre>
-<p class="source">crates/seaorm-demo/src/crud.rs</p>
-                        </div>
-                    </div>
-                    <aside class="notes">
-                        <ul>
-                            <li>Diesel: sync with <code>r2d2</code>; <code>diesel-async</code> with <code>deadpool</code> or <code>bb8</code></li>
-                            <li><code>diesel-async</code> on SQLite wraps a sync connection on a blocking thread: same hop as sqlx</li>
-                            <li>SeaORM: a sqlx pool underneath, set max connections</li>
-                            <li>sqlx: built-in <code>PgPool</code> / <code>SqlitePool</code>; each SQLite connection keeps its worker thread</li>
-                        </ul>
-                    </aside>
-                </section>
-                <section>
-                    <h3>Blocking work</h3>
-<pre><code class="language-rust" data-trim data-source="crates/school-api/src/database.rs">
-async fn blocking&lt;T: Send + 'static&gt;(
-    work: impl FnOnce() -&gt; Result&lt;T&gt; + Send + 'static,
-) -&gt; Result&lt;T&gt; {
-    tokio::task::spawn_blocking(work)
-        .await
-        .context("the blocking task panicked")?
-}
-</code></pre>
-<p class="source">crates/school-api/src/database.rs</p>
-<pre><code class="language-rust" data-trim data-source="crates/school-api/src/database.rs">
-fn lock(conn: &amp;Mutex&lt;rusqlite::Connection&gt;) -&gt; Result&lt;MutexGuard&lt;'_, rusqlite::Connection&gt;&gt; {
-    conn.lock()
-        .map_err(|_| anyhow!("the SQLite connection lock is poisoned"))
-}
-</code></pre>
-<p class="source">crates/school-api/src/database.rs</p>
-                    <aside class="notes">
-                        <ul>
-                            <li>rusqlite: no pool crate supports rusqlite 0.43, so one connection behind a lock</li>
-                            <li>Blocking calls go to <code>spawn_blocking</code>; we choose the work per hop</li>
-                            <li>Turso: async-native, no worker thread; <code>connect()</code> per request</li>
-                        </ul>
-                    </aside>
-                </section>
-                <section>
-                    <h3>One writer</h3>
-<pre><code class="language-rust" data-trim data-source="crates/school-api/src/database.rs">
-rusqlite: Arc&lt;Mutex&lt;rusqlite::Connection&gt;&gt;,
-turso: turso::Database,
-</code></pre>
-<p class="source">crates/school-api/src/database.rs</p>
-                    <aside class="notes">
-                        <ul>
-                            <li>SQLite: one writer at a time, even in WAL mode</li>
-                            <li>A big write pool just queues on the lock; reads are where pools help</li>
-                            <li>Turso: concurrent writes with opt-in MVCC mode</li>
-                            <li>One flag away, and SQLite can't do it at all</li>
-                        </ul>
-                    </aside>
-                </section>
-            </section>
-
-            <section>
                 <h2>Fin</h2>
+                <figure><img src="img/dog.jpg" width="215px"/><h4>My dog says hi.</h4></figure>
             </section>
         </div>
     </div>
@@ -935,6 +1402,8 @@ turso: turso::Database,
     <script>
         Reveal.initialize({
             hash: true,
+            width: 1280,
+            height: 720,
             plugins: [RevealHighlight, RevealNotes],
         });
     </script>

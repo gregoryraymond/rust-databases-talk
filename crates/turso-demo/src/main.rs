@@ -1,32 +1,40 @@
-//! Turso: an async, SQLite-compatible database engine rewritten in Rust.
-//!
-//! Prints the linked SQLite version, then times inserting `[rows]` rows
-//! (default: [`ROW_COUNT`]) into a fresh database file.
-//! With `geo` as the argument, runs the geospatial example instead.
-
-mod connection;
-mod geospatial;
-mod inserts;
-mod version;
-
-use std::{env, io::Write as _};
+use std::time::Instant;
 
 use anyhow::{Context as _, Result};
-use bench_common::{geo_workload::GEO_COMMAND, workload::ROW_COUNT};
+use bench_common::{
+    database::fresh_sqlite_path,
+    school::{SchoolInput, rows_from_args},
+};
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let arg = env::args().nth(1);
-    let mut out = std::io::stdout();
-    if arg.as_deref() == Some(GEO_COMMAND) {
-        writeln!(out, "{}", geospatial::run().await?)?;
-        return Ok(());
-    }
-    let rows = match arg {
-        Some(arg) => arg.parse().context("rows must be a whole number")?,
-        None => ROW_COUNT,
+    let path = fresh_sqlite_path("turso")?;
+    let db = turso_demo::open(path.to_str().context("path is not UTF-8")?).await?;
+    let mut conn = db.connect()?;
+
+    let school = turso_demo::create(&conn, &SchoolInput::example()).await?;
+    println!("created   {school:?}");
+    println!(
+        "retrieved {:?}",
+        turso_demo::retrieve(&conn, school.id).await?
+    );
+    let moved = SchoolInput {
+        lat: -37.8695,
+        ..SchoolInput::example()
     };
-    writeln!(out, "turso: SQLite {}", version::library_version().await?)?;
-    writeln!(out, "{}", inserts::insert_rows(rows).await?)?;
+    println!(
+        "updated   {:?}",
+        turso_demo::update(&conn, school.id, &moved).await?
+    );
+    println!("deleted   {}", turso_demo::delete(&conn, school.id).await?);
+
+    let rows = rows_from_args()?;
+    let start = Instant::now();
+    let tx = conn.transaction().await?;
+    for i in 0..rows {
+        turso_demo::create(&tx, &SchoolInput::numbered(i)).await?;
+    }
+    tx.commit().await?;
+    println!("turso/Sqlite: {rows} creates in {:.2?}", start.elapsed());
     Ok(())
 }

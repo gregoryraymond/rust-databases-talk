@@ -1,0 +1,7 @@
+CREATE TABLE school (
+    id BYTEA PRIMARY KEY,
+    name TEXT NOT NULL,
+    lon DOUBLE PRECISION NOT NULL,
+    lat DOUBLE PRECISION NOT NULL,
+    created_at TIMESTAMP NOT NULL
+);

@@ -1,6 +1,5 @@
 [package]
 name = "school-api"
-description = "A Dropshot CRUD API for schools that runs each request through the library named in its path."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -10,6 +9,7 @@ publish.workspace = true
 anyhow.workspace = true
 bench-common.workspace = true
 diesel.workspace = true
+diesel-async.workspace = true
 diesel-demo = { path = "../diesel-demo" }
 dropshot.workspace = true
 rusqlite.workspace = true
