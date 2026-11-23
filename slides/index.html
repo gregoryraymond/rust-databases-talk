@@ -1275,16 +1275,28 @@ tx.commit()?;
                     <div class="cols">
                         <div>
                             <h4>SQLite</h4>
-                    <table>
-                        <thead><tr><th>Library</th><th>Time</th><th>µs/row</th></tr></thead>
-                        <tbody>
-                            <tr><td>rusqlite</td><td>9.4 s</td><td>3.1</td></tr>
-                            <tr><td>diesel</td><td>27.7 s</td><td>9.2</td></tr>
-                            <tr><td>turso</td><td>51.9 s</td><td>17.3</td></tr>
-                            <tr><td>sqlx</td><td>169.6 s</td><td>56.5</td></tr>
-                            <tr><td>seaorm</td><td>206.6 s</td><td>68.9</td></tr>
-                        </tbody>
-                    </table>
+                            <table>
+                                <thead><tr><th>Library</th><th>Time</th></tr></thead>
+                                <tbody>
+                                    <tr><td>rusqlite</td><td>2.0 s</td></tr>
+                                    <tr><td>diesel</td><td>8.6 s</td></tr>
+                                    <tr><td>turso</td><td>13.3 s</td></tr>
+                                    <tr><td>sqlx</td><td>51.8 s</td></tr>
+                                    <tr><td>seaorm</td><td>65.6 s</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div>
+                            <h4>Postgres</h4>
+                            <table>
+                                <thead><tr><th>Library</th><th>1 writer</th><th>8 writers</th></tr></thead>
+                                <tbody>
+                                    <tr><td>diesel</td><td>123.7 s</td><td>47.2 s</td></tr>
+                                    <tr><td>sqlx</td><td>136.1 s</td><td>25.5 s</td></tr>
+                                    <tr><td>seaorm</td><td>144.5 s</td><td>28.6 s</td></tr>
+                                </tbody>
+                            </table>
+                            <p style="font-size: 0.4em; text-align: left;">Diesel's 8-writer run uses diesel-async. Each writer has its own connection and transaction.</p>
                         </div>
                     </div>
                     <aside class="notes">
@@ -1295,6 +1307,12 @@ tx.commit()?;
                             <li>rusqlite calls the C interface directly: very fast</li>
                             <li>Diesel: niceties, used it in production</li>
                             <li>SeaORM next time, but built on sqlx: worried about the performance hit</li>
+                            <li>Postgres with one writer is the slowest of all: every row is a round trip to another container</li>
+                            <li>Each row waits for the reply before the next one can go</li>
+                            <li>So give it what it's built for: 8 writers, each with its own connection and transaction</li>
+                            <li>sqlx and SeaORM get about 5x faster, Diesel (async) about 2.6x</li>
+                            <li>SQLite can't do this, it only ever has one writer</li>
+                            <li>Batching (multi-row inserts or <code>COPY</code>) would close the gap further</li>
                         </ul>
                     </aside>
                 </section>
